@@ -2,6 +2,7 @@ package com.pathplanner.lib.config;
 
 import static org.wpilib.units.Units.*;
 
+import org.wpilib.math.system.DCMotor;
 import org.wpilib.units.measure.Current;
 import org.wpilib.units.measure.Distance;
 import org.wpilib.units.measure.LinearVelocity;
@@ -19,7 +20,7 @@ public class ModuleConfig {
   public final double wheelCOF;
 
   /** The DCMotor representing the drive gearbox, including gear reduction */
-  public final org.wpilib.math.system.DCMotor driveMotor;
+  public final DCMotor driveMotor;
 
   /** The current limit of the drive motor, in Amps */
   public final double driveCurrentLimit;
@@ -51,7 +52,7 @@ public class ModuleConfig {
       double wheelRadiusMeters,
       double maxDriveVelocityMPS,
       double wheelCOF,
-      org.wpilib.math.system.DCMotor driveMotor,
+      DCMotor driveMotor,
       double driveCurrentLimit,
       int numMotors) {
     this.wheelRadiusMeters = wheelRadiusMeters;
@@ -84,7 +85,7 @@ public class ModuleConfig {
       Distance wheelRadius,
       LinearVelocity maxDriveVelocity,
       double wheelCOF,
-      org.wpilib.math.system.DCMotor driveMotor,
+      DCMotor driveMotor,
       Current driveCurrentLimit,
       int numMotors) {
     this(
@@ -116,7 +117,7 @@ public class ModuleConfig {
       double wheelRadiusMeters,
       double maxDriveVelocityMPS,
       double wheelCOF,
-      org.wpilib.math.system.DCMotor driveMotor,
+      DCMotor driveMotor,
       double driveGearing,
       double driveCurrentLimit,
       int numMotors) {
@@ -149,7 +150,7 @@ public class ModuleConfig {
       Distance wheelRadius,
       LinearVelocity maxDriveVelocity,
       double wheelCOF,
-      org.wpilib.math.system.DCMotor driveMotor,
+      DCMotor driveMotor,
       double driveGearing,
       Current driveCurrentLimit,
       int numMotors) {
