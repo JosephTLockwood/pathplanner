@@ -20,7 +20,7 @@ public class CommandUtil {
    * @return A command that does nothing
    */
   public static Command none() {
-    return Command.noRequirements(coroutine -> {}).named("None");
+    return Command.noRequirements(_ -> {}).named("None");
   }
 
   /**
@@ -52,7 +52,7 @@ public class CommandUtil {
   public static Command buildCommand(CommandSpec spec, boolean mirror)
       throws IOException, ParseException {
     return switch (spec) {
-      case CommandSpec.None none -> none();
+      case CommandSpec.None _ -> none();
       case CommandSpec.Wait wait ->
           Command.waitFor(Seconds.of(wait.waitTimeSeconds()))
               .named("Wait " + wait.waitTimeSeconds() + "s");

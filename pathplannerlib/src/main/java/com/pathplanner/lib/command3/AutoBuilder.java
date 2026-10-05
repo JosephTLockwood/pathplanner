@@ -138,7 +138,7 @@ public class AutoBuilder {
         poseSupplier,
         resetPose,
         robotRelativeSpeedsSupplier,
-        (speeds, feedforwards) -> output.accept(speeds),
+        (speeds, _) -> output.accept(speeds),
         controller,
         robotConfig,
         shouldFlipPath,
@@ -510,7 +510,7 @@ public class AutoBuilder {
     Consumer<Pose2d> resetPose = globals.resetPose;
 
     return Command.noRequirements(
-            coroutine -> {
+            _ -> {
               if (shouldFlip.getAsBoolean()) {
                 resetPose.accept(FlippingUtil.flipFieldPose(bluePose));
               } else {

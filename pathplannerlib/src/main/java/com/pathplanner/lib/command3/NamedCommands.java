@@ -69,14 +69,14 @@ public class NamedCommands {
   public static Command getCommand(String name) {
     if (hasCommand(name)) {
       return namedCommands.get(name);
-    } else {
-      DriverStationErrors.reportWarning(
-          "PathPlanner attempted to create a command '"
-              + name
-              + "' that has not been registered with NamedCommands.registerCommand",
-          false);
-      return CommandUtil.none();
     }
+
+    DriverStationErrors.reportWarning(
+        "PathPlanner attempted to create a command '"
+            + name
+            + "' that has not been registered with NamedCommands.registerCommand",
+        false);
+    return CommandUtil.none();
   }
 
   /** Clear all registered commands */

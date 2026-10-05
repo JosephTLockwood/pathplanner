@@ -55,7 +55,7 @@ public class CommandUtil {
   public static Command buildCommand(CommandSpec spec, boolean mirror)
       throws IOException, ParseException {
     return switch (spec) {
-      case CommandSpec.None none -> Commands.none();
+      case CommandSpec.None _ -> Commands.none();
       case CommandSpec.Wait wait -> Commands.waitSeconds(wait.waitTimeSeconds());
       case CommandSpec.Named named -> NamedCommands.getCommand(named.name());
       case CommandSpec.FollowPath path -> AutoBuilder.followPath(path.loadPath(mirror));

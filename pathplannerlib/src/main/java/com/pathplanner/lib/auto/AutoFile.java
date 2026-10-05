@@ -93,9 +93,8 @@ public record AutoFile(CommandSpec command, boolean resetOdom, boolean choreoAut
     PathPlannerPath path0 = pathCommands.get(0).loadPath(mirror);
     if (holonomic) {
       return new Pose2d(path0.getPoint(0).position, path0.getIdealStartingState().rotation());
-    } else {
-      return path0.getStartingDifferentialPose();
     }
+    return path0.getStartingDifferentialPose();
   }
 
   /**

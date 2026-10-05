@@ -150,9 +150,8 @@ public final class AutoTriggerConditions {
     return () -> {
       if (shouldFlip.getAsBoolean()) {
         return isInBox(poseSupplier.get(), redBoundingBoxMin, redBoundingBoxMax);
-      } else {
-        return isInBox(poseSupplier.get(), blueBoundingBoxMin, blueBoundingBoxMax);
       }
+      return isInBox(poseSupplier.get(), blueBoundingBoxMin, blueBoundingBoxMax);
     };
   }
 

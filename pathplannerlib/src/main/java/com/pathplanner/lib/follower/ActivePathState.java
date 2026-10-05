@@ -45,12 +45,12 @@ public final class ActivePathState {
     for (Event e : trajectory.getEvents()) {
       if (e instanceof OneShotTriggerEvent event) {
         Translation2d pos = trajectory.sample(event.getTimestampSeconds()).pose.getTranslation();
-        eventStartPositions.computeIfAbsent(event.getEventName(), k -> new ArrayList<>()).add(pos);
-        eventEndPositions.computeIfAbsent(event.getEventName(), k -> new ArrayList<>()).add(pos);
+        eventStartPositions.computeIfAbsent(event.getEventName(), _ -> new ArrayList<>()).add(pos);
+        eventEndPositions.computeIfAbsent(event.getEventName(), _ -> new ArrayList<>()).add(pos);
       } else if (e instanceof TriggerEvent event) {
         Translation2d pos = trajectory.sample(event.getTimestampSeconds()).pose.getTranslation();
         var positions = event.getValue() ? eventStartPositions : eventEndPositions;
-        positions.computeIfAbsent(event.getEventName(), k -> new ArrayList<>()).add(pos);
+        positions.computeIfAbsent(event.getEventName(), _ -> new ArrayList<>()).add(pos);
       }
     }
   }

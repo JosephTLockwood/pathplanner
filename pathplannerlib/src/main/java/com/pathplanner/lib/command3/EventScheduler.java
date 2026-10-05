@@ -42,7 +42,7 @@ import org.wpilib.driverstation.DriverStationErrors;
  */
 public class EventScheduler extends EventSchedulerBase {
   private final Map<CommandSpec, Command> eventCommands = new IdentityHashMap<>();
-  private Coroutine coroutine;
+  private Coroutine eventsCoroutine;
 
   /** Create a new EventScheduler */
   public EventScheduler() {}
@@ -94,7 +94,7 @@ public class EventScheduler extends EventSchedulerBase {
 
     return Command.noRequirements(
             coroutine -> {
-              this.coroutine = coroutine;
+              eventsCoroutine = coroutine;
               // An event command that can't be scheduled should not cancel the path
               coroutine.setCancelOnForkFailure(false);
 
@@ -110,7 +110,7 @@ public class EventScheduler extends EventSchedulerBase {
             })
         .whenCanceled(
             () -> {
-              this.coroutine = null;
+              eventsCoroutine = null;
 
               // Cancel any events that were never reached
               for (Event e : upcomingEvents) {
@@ -127,7 +127,7 @@ public class EventScheduler extends EventSchedulerBase {
 
     // Forking starts the command immediately, canceling any other commands with shared
     // requirements
-    var result = coroutine.fork(eventCommand);
+    var result = eventsCoroutine.fork(eventCommand);
     if (result.failed()) {
       DriverStationErrors.reportWarning(
           "PathPlanner could not schedule event command '"
@@ -141,7 +141,7 @@ public class EventScheduler extends EventSchedulerBase {
   protected void cancelCommand(CommandSpec command) {
     Command eventCommand = eventCommands.get(command);
     if (eventCommand != null) {
-      coroutine.scheduler().cancel(eventCommand);
+      eventsCoroutine.scheduler().cancel(eventCommand);
     }
   }
 
