@@ -1,15 +1,18 @@
 package com.pathplanner.lib.util;
 
 import com.pathplanner.lib.path.PathPlannerPath;
-import edu.wpi.first.math.geometry.Pose2d;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import org.wpilib.math.geometry.Pose2d;
 
 /** Utility class for handling custom logging callbacks */
 public class PathPlannerLogging {
+
   private static Consumer<Pose2d> logCurrentPose = null;
+
   private static Consumer<Pose2d> logTargetPose = null;
+
   private static Consumer<List<Pose2d>> logActivePath = null;
 
   /**

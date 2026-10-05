@@ -1,21 +1,25 @@
 package com.pathplanner.lib.util;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /** Utility class for flipping positions/rotations to the other side of the field */
 public class FlippingUtil {
+
   /** The type of symmetry for the current field */
   public static FieldSymmetry symmetryType = FieldSymmetry.kRotational;
+
   /** The X size or length of the current field in meters */
   public static double fieldSizeX = 16.54;
+
   /** The Y size or width of the current field in meters */
   public static double fieldSizeY = 8.07;
 
   /** Enum representing the different types of field symmetry */
   public enum FieldSymmetry {
+
     /**
      * Field is rotationally symmetric. i.e. the red alliance side is the blue alliance side rotated
      * by 180 degrees
@@ -46,8 +50,8 @@ public class FlippingUtil {
    */
   public static Rotation2d flipFieldRotation(Rotation2d rotation) {
     return switch (symmetryType) {
-      case kMirrored -> Rotation2d.kPi.minus(rotation);
-      case kRotational -> rotation.minus(Rotation2d.kPi);
+      case kMirrored -> Rotation2d.PI.minus(rotation);
+      case kRotational -> rotation.minus(Rotation2d.PI);
     };
   }
 
@@ -69,16 +73,11 @@ public class FlippingUtil {
    * @param fieldSpeeds Field relative chassis speeds
    * @return Flipped speeds
    */
-  public static ChassisSpeeds flipFieldSpeeds(ChassisSpeeds fieldSpeeds) {
+  public static ChassisVelocities flipFieldSpeeds(ChassisVelocities fieldSpeeds) {
     return switch (symmetryType) {
-      case kMirrored -> new ChassisSpeeds(
-          -fieldSpeeds.vxMetersPerSecond,
-          fieldSpeeds.vyMetersPerSecond,
-          -fieldSpeeds.omegaRadiansPerSecond);
-      case kRotational -> new ChassisSpeeds(
-          -fieldSpeeds.vxMetersPerSecond,
-          -fieldSpeeds.vyMetersPerSecond,
-          fieldSpeeds.omegaRadiansPerSecond);
+      case kMirrored -> new ChassisVelocities(-fieldSpeeds.vx, fieldSpeeds.vy, -fieldSpeeds.omega);
+      case kRotational ->
+          new ChassisVelocities(-fieldSpeeds.vx, -fieldSpeeds.vy, fieldSpeeds.omega);
     };
   }
 
@@ -97,7 +96,8 @@ public class FlippingUtil {
         } else if (feedforwards.length == 2) {
           yield new double[] {feedforwards[1], feedforwards[0]};
         }
-        yield feedforwards; // idk
+        // idk
+        yield feedforwards;
       }
       case kRotational -> feedforwards;
     };

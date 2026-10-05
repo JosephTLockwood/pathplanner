@@ -2,27 +2,34 @@ package com.pathplanner.lib.controllers;
 
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.trajectory.PathPlannerTrajectoryState;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import java.util.Optional;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.wpilib.math.controller.PIDController;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /** Path following controller for holonomic drive trains */
 public class PPHolonomicDriveController implements PathFollowingController {
+
   private final PIDController xController;
+
   private final PIDController yController;
+
   private final PIDController rotationController;
 
   private Translation2d translationError = new Translation2d();
+
   private boolean isEnabled = true;
 
   private static Supplier<Optional<Rotation2d>> rotationTargetOverride = null;
+
   private static DoubleSupplier xFeedbackOverride = null;
+
   private static DoubleSupplier yFeedbackOverride = null;
+
   private static DoubleSupplier rotFeedbackOverride = null;
 
   /**
@@ -38,12 +45,10 @@ public class PPHolonomicDriveController implements PathFollowingController {
         new PIDController(
             translationConstants.kP, translationConstants.kI, translationConstants.kD, period);
     this.xController.setIntegratorRange(-translationConstants.iZone, translationConstants.iZone);
-
     this.yController =
         new PIDController(
             translationConstants.kP, translationConstants.kI, translationConstants.kD, period);
     this.yController.setIntegratorRange(-translationConstants.iZone, translationConstants.iZone);
-
     // Temp rate limit of 0, will be changed in calculate
     this.rotationController =
         new PIDController(rotationConstants.kP, rotationConstants.kI, rotationConstants.kD, period);
@@ -79,7 +84,7 @@ public class PPHolonomicDriveController implements PathFollowingController {
    * @param currentSpeeds Current robot relative chassis speeds
    */
   @Override
-  public void reset(Pose2d currentPose, ChassisSpeeds currentSpeeds) {
+  public void reset(Pose2d currentPose, ChassisVelocities currentSpeeds) {
     xController.reset();
     yController.reset();
     rotationController.reset();
@@ -93,15 +98,15 @@ public class PPHolonomicDriveController implements PathFollowingController {
    * @return The next robot relative output of the path following controller
    */
   @Override
-  public ChassisSpeeds calculateRobotRelativeSpeeds(
+  public ChassisVelocities calculateRobotRelativeSpeeds(
       Pose2d currentPose, PathPlannerTrajectoryState targetState) {
-    double xFF = targetState.fieldSpeeds.vxMetersPerSecond;
-    double yFF = targetState.fieldSpeeds.vyMetersPerSecond;
+    double xFF = targetState.fieldSpeeds.vx;
+    double yFF = targetState.fieldSpeeds.vy;
 
     this.translationError = currentPose.getTranslation().minus(targetState.pose.getTranslation());
 
     if (!this.isEnabled) {
-      return ChassisSpeeds.fromFieldRelativeSpeeds(xFF, yFF, 0, currentPose.getRotation());
+      return new ChassisVelocities(xFF, yFF, 0).toRobotRelative(currentPose.getRotation());
     }
 
     double xFeedback = this.xController.calculate(currentPose.getX(), targetState.pose.getX());
@@ -115,7 +120,7 @@ public class PPHolonomicDriveController implements PathFollowingController {
     double rotationFeedback =
         rotationController.calculate(
             currentPose.getRotation().getRadians(), targetRotation.getRadians());
-    double rotationFF = targetState.fieldSpeeds.omegaRadiansPerSecond;
+    double rotationFF = targetState.fieldSpeeds.omega;
 
     if (xFeedbackOverride != null) {
       xFeedback = xFeedbackOverride.getAsDouble();
@@ -127,8 +132,8 @@ public class PPHolonomicDriveController implements PathFollowingController {
       rotationFeedback = rotFeedbackOverride.getAsDouble();
     }
 
-    return ChassisSpeeds.fromFieldRelativeSpeeds(
-        xFF + xFeedback, yFF + yFeedback, rotationFF + rotationFeedback, currentPose.getRotation());
+    return new ChassisVelocities(xFF + xFeedback, yFF + yFeedback, rotationFF + rotationFeedback)
+        .toRobotRelative(currentPose.getRotation());
   }
 
   /**
