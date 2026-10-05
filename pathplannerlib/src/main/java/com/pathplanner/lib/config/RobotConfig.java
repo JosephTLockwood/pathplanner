@@ -290,7 +290,7 @@ public class RobotConfig {
     String driveMotor = (String) json.get("driveMotorType");
     double driveCurrentLimit = ((Number) json.get("driveCurrentLimit")).doubleValue();
     int numMotors = isHolonomic ? 1 : 2;
-    org.wpilib.math.system.DCMotor gearbox =
+    DCMotor gearbox =
         switch (driveMotor) {
           case "krakenX60" -> DCMotor.getKrakenX60(numMotors);
           case "krakenX60FOC" -> DCMotor.getKrakenX60Foc(numMotors);

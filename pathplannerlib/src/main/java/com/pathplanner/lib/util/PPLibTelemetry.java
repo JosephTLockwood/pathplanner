@@ -9,6 +9,7 @@ import java.util.*;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.wpilib.driverstation.DriverStationErrors;
+import org.wpilib.driverstation.RobotState;
 import org.wpilib.framework.RobotBase;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.networktables.*;
@@ -152,7 +153,7 @@ public class PPLibTelemetry {
 
   private static void handlePathHotReloadEvent(NetworkTableEvent event) {
     if (!compMode) {
-      if (org.wpilib.driverstation.RobotState.isEnabled()) {
+      if (RobotState.isEnabled()) {
         DriverStationErrors.reportWarning("Ignoring path hot reload, robot is enabled", false);
         return;
       }
@@ -185,7 +186,7 @@ public class PPLibTelemetry {
 
   private static void handleAutoHotReloadEvent(NetworkTableEvent event) {
     if (!compMode) {
-      if (org.wpilib.driverstation.RobotState.isEnabled()) {
+      if (RobotState.isEnabled()) {
         DriverStationErrors.reportWarning("Ignoring auto hot reload, robot is enabled", false);
         return;
       }
