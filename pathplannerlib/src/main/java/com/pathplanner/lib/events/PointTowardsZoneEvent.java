@@ -41,15 +41,15 @@ public class PointTowardsZoneEvent extends Event {
    * @param eventScheduler Reference to the EventScheduler running this event
    */
   @Override
-  public void handleEvent(EventScheduler eventScheduler) {
-    PointTowardsZoneTrigger.setWithinZone(name, active);
+  public void handleEvent(EventSchedulerBase eventScheduler) {
+    EventConditions.setWithinZone(name, active);
   }
 
   @Override
-  public void cancelEvent(EventScheduler eventScheduler) {
+  public void cancelEvent(EventSchedulerBase eventScheduler) {
     if (!active) {
       // Ensure this zone's condition gets set to false
-      PointTowardsZoneTrigger.setWithinZone(name, false);
+      EventConditions.setWithinZone(name, false);
     }
   }
 

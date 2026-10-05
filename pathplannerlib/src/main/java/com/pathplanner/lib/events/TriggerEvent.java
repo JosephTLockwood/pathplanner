@@ -59,15 +59,15 @@ public class TriggerEvent extends Event {
    * @param eventScheduler Reference to the EventScheduler running this event
    */
   @Override
-  public void handleEvent(EventScheduler eventScheduler) {
-    EventTrigger.setCondition(name, active);
+  public void handleEvent(EventSchedulerBase eventScheduler) {
+    EventConditions.setEventActive(name, active);
   }
 
   @Override
-  public void cancelEvent(EventScheduler eventScheduler) {
+  public void cancelEvent(EventSchedulerBase eventScheduler) {
     if (!active) {
       // Ensure this event's condition gets set to false
-      EventTrigger.setCondition(name, false);
+      EventConditions.setEventActive(name, false);
     }
   }
 

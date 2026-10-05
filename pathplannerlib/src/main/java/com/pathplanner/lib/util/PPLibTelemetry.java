@@ -1,11 +1,11 @@
 package com.pathplanner.lib.util;
 
-import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.path.PathPlannerPath;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Consumer;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.wpilib.driverstation.DriverStationErrors;
@@ -39,7 +39,7 @@ public class PPLibTelemetry {
 
   private static final Map<String, List<PathPlannerPath>> hotReloadPaths = new HashMap<>();
 
-  private static final Map<String, List<PathPlannerAuto>> hotReloadAutos = new HashMap<>();
+  private static final Map<String, List<Consumer<JSONObject>>> hotReloadAutos = new HashMap<>();
 
   private static NetworkTableListener hotReloadPathListener = null;
 
@@ -119,15 +119,15 @@ public class PPLibTelemetry {
    * Register an auto for hot reload. This is used internally.
    *
    * @param autoName Name of the auto
-   * @param auto Reference to the auto
+   * @param hotReload Function that will reload the auto from the updated auto json
    */
-  public static void registerHotReloadAuto(String autoName, PathPlannerAuto auto) {
+  public static void registerHotReloadAuto(String autoName, Consumer<JSONObject> hotReload) {
     if (!compMode) {
       ensureHotReloadListenersInitialized();
       if (!hotReloadAutos.containsKey(autoName)) {
         hotReloadAutos.put(autoName, new ArrayList<>());
       }
-      hotReloadAutos.get(autoName).add(auto);
+      hotReloadAutos.get(autoName).add(hotReload);
     }
   }
 
@@ -195,8 +195,8 @@ public class PPLibTelemetry {
         String name = (String) json.get("name");
         JSONObject autoJson = (JSONObject) json.get("auto");
         if (hotReloadAutos.containsKey(name)) {
-          for (PathPlannerAuto auto : hotReloadAutos.get(name)) {
-            auto.hotReload(autoJson);
+          for (Consumer<JSONObject> hotReload : hotReloadAutos.get(name)) {
+            hotReload.accept(autoJson);
           }
         }
         if (RobotBase.isReal()) {

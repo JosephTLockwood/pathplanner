@@ -68,7 +68,7 @@ public abstract class Event {
    *
    * @param eventScheduler Reference to the EventScheduler handling this event
    */
-  public abstract void handleEvent(EventScheduler eventScheduler);
+  public abstract void handleEvent(EventSchedulerBase eventScheduler);
 
   /**
    * Cancel this event. This will be called if a path following command ends before this event gets
@@ -76,7 +76,7 @@ public abstract class Event {
    *
    * @param eventScheduler Reference to the EventScheduler handling this event
    */
-  public abstract void cancelEvent(EventScheduler eventScheduler);
+  public abstract void cancelEvent(EventSchedulerBase eventScheduler);
 
   /**
    * Copy this event with a different timestamp

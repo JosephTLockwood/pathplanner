@@ -1,21 +1,22 @@
-package com.pathplanner.lib.auto;
+package com.pathplanner.lib.command3;
 
 import com.pathplanner.lib.util.PPLibTesting;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.wpilib.command2.*;
+import org.wpilib.command3.Command;
 import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.util.Pair;
 
-/** Utility class for managing named commands */
+/** Utility class for managing named Commands v3 commands */
 public class NamedCommands {
-
   private static final HashMap<String, Command> namedCommands = new HashMap<>();
 
   static {
     PPLibTesting.addResetHook(NamedCommands::clearAll);
   }
+
+  private NamedCommands() {}
 
   /**
    * Registers a command with the given name.
@@ -58,26 +59,27 @@ public class NamedCommands {
   }
 
   /**
-   * Returns the command with the given name.
+   * Returns the command registered with the given name. Unlike Commands v2, Commands v3 commands
+   * can be used in multiple compositions, so the registered command is returned directly.
    *
-   * @param name the name of the command to get
-   * @return the command with the given name, wrapped in a functional command, or a none command if
-   *     it has not been registered
+   * @param name the name of the command
+   * @return the command registered with the given name, or a command that does nothing if no
+   *     command has been registered with that name
    */
   public static Command getCommand(String name) {
     if (hasCommand(name)) {
-      return CommandUtil.wrappedEventCommand(namedCommands.get(name));
+      return namedCommands.get(name);
     } else {
       DriverStationErrors.reportWarning(
           "PathPlanner attempted to create a command '"
               + name
               + "' that has not been registered with NamedCommands.registerCommand",
           false);
-      return Commands.none();
+      return CommandUtil.none();
     }
   }
 
-  /** Removes all registered named commands. */
+  /** Clear all registered commands */
   public static void clearAll() {
     namedCommands.clear();
   }

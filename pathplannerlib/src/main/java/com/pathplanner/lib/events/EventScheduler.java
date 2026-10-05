@@ -1,30 +1,42 @@
 package com.pathplanner.lib.events;
 
+import com.pathplanner.lib.auto.CommandSpec;
+import com.pathplanner.lib.auto.CommandUtil;
 import com.pathplanner.lib.path.EventMarker;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.trajectory.PathPlannerTrajectory;
+import java.io.IOException;
 import java.util.*;
+import org.json.simple.parser.ParseException;
 import org.wpilib.command2.Command;
+import org.wpilib.command2.CommandScheduler;
+import org.wpilib.command2.Commands;
 import org.wpilib.command2.Subsystem;
+import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.event.EventLoop;
 
 /**
- * Scheduler for running events while following a trajectory
+ * Scheduler for running events while following a trajectory, using Commands v2
  *
  * <p>Note: The command that is running this scheduler must have the requirements of all commands
  * that will be run during the path being followed.
  */
-public class EventScheduler {
+public class EventScheduler extends EventSchedulerBase {
 
   private static final EventLoop eventLoop = new EventLoop();
 
+  private static final Map<String, Command> oneShotResetCommands = new HashMap<>();
+
   private final Map<Command, Boolean> eventCommands;
+
+  private final Map<CommandSpec, Command> builtCommands;
 
   private final Queue<Event> upcomingEvents;
 
   /** Create a new EventScheduler */
   public EventScheduler() {
     this.eventCommands = new HashMap<>();
+    this.builtCommands = new IdentityHashMap<>();
     this.upcomingEvents =
         new PriorityQueue<>(Comparator.comparingDouble(Event::getTimestampSeconds));
   }
@@ -52,17 +64,21 @@ public class EventScheduler {
     while (!upcomingEvents.isEmpty() && time >= upcomingEvents.peek().getTimestampSeconds()) {
       upcomingEvents.poll().handleEvent(this);
     }
+
     // Run currently running commands
     for (var entry : eventCommands.entrySet()) {
       if (!entry.getValue()) {
         continue;
       }
+
       entry.getKey().execute();
+
       if (entry.getKey().isFinished()) {
         entry.getKey().end(false);
         eventCommands.put(entry.getKey(), false);
       }
     }
+
     eventLoop.poll();
   }
 
@@ -76,12 +92,15 @@ public class EventScheduler {
       if (!entry.getValue()) {
         continue;
       }
+
       entry.getKey().end(true);
     }
+
     // Cancel any unhandled events
     for (Event e : upcomingEvents) {
       e.cancelEvent(this);
     }
+
     eventCommands.clear();
     upcomingEvents.clear();
   }
@@ -94,11 +113,13 @@ public class EventScheduler {
    */
   public static Set<Subsystem> getSchedulerRequirements(PathPlannerPath path) {
     Set<Subsystem> allReqs = new HashSet<>();
+
     for (EventMarker m : path.getEventMarkers()) {
       if (m.command() != null) {
-        allReqs.addAll(m.command().getRequirements());
+        allReqs.addAll(buildEventCommand(m.command()).getRequirements());
       }
     }
+
     return allReqs;
   }
 
@@ -109,6 +130,45 @@ public class EventScheduler {
    */
   protected static EventLoop getEventLoop() {
     return eventLoop;
+  }
+
+  @Override
+  protected void scheduleCommand(CommandSpec command) {
+    scheduleCommand(builtCommands.computeIfAbsent(command, EventScheduler::buildEventCommand));
+  }
+
+  @Override
+  protected void cancelCommand(CommandSpec command) {
+    Command built = builtCommands.get(command);
+    if (built != null) {
+      cancelCommand(built);
+    }
+  }
+
+  @Override
+  protected void handleOneShotTrigger(String eventName) {
+    EventConditions.setEventActive(eventName, true);
+
+    // We schedule this command with the main command scheduler so that it is guaranteed to be run
+    // in its entirety, since the EventScheduler could cancel this command before it finishes
+    Command resetCommand =
+        oneShotResetCommands.computeIfAbsent(
+            eventName,
+            name ->
+                Commands.waitSeconds(0.0)
+                    .andThen(Commands.runOnce(() -> EventConditions.setEventActive(name, false)))
+                    .ignoringDisable(true));
+    CommandScheduler.getInstance().schedule(resetCommand);
+  }
+
+  private static Command buildEventCommand(CommandSpec spec) {
+    try {
+      return CommandUtil.buildCommand(spec, false);
+    } catch (IOException | ParseException e) {
+      DriverStationErrors.reportError(
+          "Failed to build event command: " + e.getMessage(), e.getStackTrace());
+      return Commands.none();
+    }
   }
 
   /**
@@ -123,10 +183,12 @@ public class EventScheduler {
       if (!entry.getValue()) {
         continue;
       }
+
       if (!Collections.disjoint(entry.getKey().getRequirements(), command.getRequirements())) {
         cancelCommand(entry.getKey());
       }
     }
+
     command.initialize();
     eventCommands.put(command, true);
   }
@@ -141,6 +203,7 @@ public class EventScheduler {
       // Command is not currently running
       return;
     }
+
     command.end(true);
     eventCommands.put(command, false);
   }

@@ -1,29 +1,28 @@
-package com.pathplanner.lib.commands;
+package com.pathplanner.lib.command3;
 
 import static org.wpilib.units.Units.Meters;
 import static org.wpilib.units.Units.Seconds;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.AutoBuilderException;
 import com.pathplanner.lib.auto.AutoFile;
 import com.pathplanner.lib.auto.AutoTriggerConditions;
-import com.pathplanner.lib.auto.CommandUtil;
-import com.pathplanner.lib.events.*;
-import com.pathplanner.lib.follower.ActivePathState;
+import com.pathplanner.lib.events.EventConditions;
 import com.pathplanner.lib.path.PathPlannerPath;
-import com.pathplanner.lib.trajectory.PathPlannerTrajectory;
 import com.pathplanner.lib.util.FileVersionException;
 import com.pathplanner.lib.util.PPLibTelemetry;
-import java.io.*;
-import java.util.*;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
-import org.wpilib.command2.Command;
-import org.wpilib.command2.Commands;
-import org.wpilib.command2.button.Trigger;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
+import org.wpilib.command3.Scheduler;
+import org.wpilib.command3.Trigger;
 import org.wpilib.driverstation.DriverStationErrors;
-import org.wpilib.event.EventLoop;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.system.Timer;
@@ -31,20 +30,23 @@ import org.wpilib.units.measure.Distance;
 import org.wpilib.units.measure.Time;
 import org.wpilib.util.UsageReporting;
 
-/** A command that loads and runs an autonomous routine built using PathPlanner. */
-public class PathPlannerAuto extends Command {
-
+/**
+ * A Commands v3 command that loads and runs an autonomous routine built using PathPlanner.
+ *
+ * <p>The triggers created by this auto are polled by the scheduler, and are only active while this
+ * auto is running. Commands bound to them are scheduled independently of the auto.
+ */
+public class PathPlannerAuto implements Command {
   private static int instances = 0;
 
+  private final Scheduler scheduler;
+  private final String name;
+  private final Timer autoTimer = new Timer();
+
   private Command autoCommand;
-
   private Pose2d startingPose;
-
-  private final EventLoop autoLoop;
-
-  private final Timer autoTimer;
-
   private boolean isRunning = false;
+  private int stopCount = 0;
 
   /**
    * Constructs a new PathPlannerAuto command.
@@ -68,36 +70,49 @@ public class PathPlannerAuto extends Command {
    *     autonomous routine
    */
   public PathPlannerAuto(String autoName, boolean mirror) {
+    this(Scheduler.getDefault(), autoName, mirror);
+  }
+
+  /**
+   * Constructs a new PathPlannerAuto command.
+   *
+   * @param scheduler The scheduler that will poll this auto's triggers
+   * @param autoName the name of the autonomous routine to load and run
+   * @param mirror Mirror all paths to the other side of the current alliance. For example, if a
+   *     path is on the right of the blue alliance side of the field, it will be mirrored to the
+   *     left of the blue alliance side of the field.
+   * @throws AutoBuilderException if AutoBuilder is not configured before attempting to load the
+   *     autonomous routine
+   */
+  public PathPlannerAuto(Scheduler scheduler, String autoName, boolean mirror) {
     if (!AutoBuilder.isConfigured()) {
       throw new AutoBuilderException(
           "AutoBuilder was not configured before attempting to load a PathPlannerAuto from file");
     }
 
+    this.scheduler = scheduler;
+    this.name = autoName;
+
     try {
       initFromAutoFile(AutoFile.fromFile(autoName), mirror);
     } catch (FileNotFoundException e) {
       DriverStationErrors.reportError(e.getMessage(), e.getStackTrace());
-      autoCommand = Commands.none();
+      autoCommand = CommandUtil.none();
     } catch (IOException e) {
       DriverStationErrors.reportError(
           "Failed to read file required by auto: " + autoName, e.getStackTrace());
-      autoCommand = Commands.none();
+      autoCommand = CommandUtil.none();
     } catch (ParseException e) {
       DriverStationErrors.reportError(
           "Failed to parse JSON in file required by auto: " + autoName, e.getStackTrace());
-      autoCommand = Commands.none();
+      autoCommand = CommandUtil.none();
     } catch (FileVersionException e) {
       DriverStationErrors.reportError(
           "Failed to load auto: " + autoName + ". " + e.getMessage(), e.getStackTrace());
-      autoCommand = Commands.none();
+      autoCommand = CommandUtil.none();
     }
 
-    addRequirements(autoCommand.getRequirements());
-    setName(autoName);
     PPLibTelemetry.registerHotReloadAuto(autoName, this::hotReload);
-
-    this.autoLoop = new EventLoop();
-    this.autoTimer = new Timer();
 
     instances++;
     UsageReporting.reportUsage("PathPlanner/PathPlannerAuto", instances, "");
@@ -110,13 +125,21 @@ public class PathPlannerAuto extends Command {
    * @param startingPose The starting pose of the auto. Only used for the getStartingPose method
    */
   public PathPlannerAuto(Command autoCommand, Pose2d startingPose) {
+    this(Scheduler.getDefault(), autoCommand, startingPose);
+  }
+
+  /**
+   * Create a PathPlannerAuto from a custom command
+   *
+   * @param scheduler The scheduler that will poll this auto's triggers
+   * @param autoCommand The command this auto should run
+   * @param startingPose The starting pose of the auto. Only used for the getStartingPose method
+   */
+  public PathPlannerAuto(Scheduler scheduler, Command autoCommand, Pose2d startingPose) {
+    this.scheduler = scheduler;
+    this.name = autoCommand.name();
     this.autoCommand = autoCommand;
     this.startingPose = startingPose;
-
-    addRequirements(autoCommand.getRequirements());
-
-    this.autoLoop = new EventLoop();
-    this.autoTimer = new Timer();
 
     instances++;
     UsageReporting.reportUsage("PathPlanner/PathPlannerAuto", instances, "");
@@ -131,6 +154,41 @@ public class PathPlannerAuto extends Command {
     this(autoCommand, Pose2d.ZERO);
   }
 
+  @Override
+  public void run(Coroutine coroutine) {
+    isRunning = true;
+    autoTimer.restart();
+
+    coroutine.await(autoCommand);
+
+    stopRunning();
+  }
+
+  @Override
+  public void onCancel() {
+    stopRunning();
+  }
+
+  @Override
+  public String name() {
+    return name;
+  }
+
+  @Override
+  public Set<Mechanism> requirements() {
+    return autoCommand.requirements();
+  }
+
+  @Override
+  public int priority() {
+    return autoCommand.priority();
+  }
+
+  @Override
+  public String toString() {
+    return name();
+  }
+
   /**
    * Get the starting pose of this auto, relative to a blue alliance origin. If there are no paths
    * in this auto, the starting pose will be null.
@@ -142,30 +200,23 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
+   * Create a trigger with a custom condition. This will be polled by the scheduler, and is only
+   * active while this auto is running.
+   *
+   * @param condition The condition represented by this trigger
+   * @return Custom condition trigger
+   */
+  public Trigger condition(BooleanSupplier condition) {
+    return new Trigger(scheduler, whileRunning(condition));
+  }
+
+  /**
    * Create a trigger that is high when this auto is running, and low when it is not running
    *
    * @return isRunning trigger
    */
   public Trigger isRunning() {
-    return condition(() -> isRunning);
-  }
-
-  /**
-   * Used by path following commands to inform autos of what trajectory is currently being followed
-   *
-   * @param trajectory The current trajectory being followed
-   */
-  public static void setCurrentTrajectory(PathPlannerTrajectory trajectory) {
-    ActivePathState.setCurrentTrajectory(trajectory);
-  }
-
-  /**
-   * Get the name of the path currently being followed. Used to handle activePath triggers
-   *
-   * @return The name of the current path, or an empty string if no path is being followed
-   */
-  public static String getCurrentPathName() {
-    return ActivePathState.getCurrentPathName();
+    return new Trigger(scheduler, () -> isRunning);
   }
 
   /**
@@ -211,22 +262,21 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Create an EventTrigger that will be polled by this auto instead of globally across all path
-   * following commands
+   * Create an event trigger that is only active while this auto is running
    *
    * @param eventName The event name that controls this trigger
    * @return EventTrigger for this auto
    */
   public Trigger event(String eventName) {
-    return new EventTrigger(autoLoop, eventName);
+    return condition(EventTrigger.pollCondition(eventName));
   }
 
   /**
-   * Create a trigger that will be activated a given time before an event is reached. The trigger
-   * will go low after passing the given event.
+   * Trigger that is high when there is less than the given time before the given event will be
+   * reached
    *
-   * @param eventName The event name
-   * @param timeSeconds The amount of time before the event this trigger should activate, in seconds
+   * @param eventName The name of the event
+   * @param timeSeconds The time before the event, in seconds
    * @return beforeEvent trigger
    */
   public Trigger beforeEvent(String eventName, double timeSeconds) {
@@ -234,11 +284,11 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Create a trigger that will be activated a given time before an event is reached. The trigger
-   * will go low after passing the given event.
+   * Trigger that is high when there is less than the given time before the given event will be
+   * reached
    *
-   * @param eventName The event name
-   * @param time The amount of time before the event this trigger should activate
+   * @param eventName The name of the event
+   * @param time The time before the event
    * @return beforeEvent trigger
    */
   public Trigger beforeEvent(String eventName, Time time) {
@@ -246,10 +296,9 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Create a trigger that will be activated when the robot is within a given distance from the
-   * start of an event
+   * Trigger that is high when the robot is within a distance of the start of the given event
    *
-   * @param eventName The event name
+   * @param eventName The name of the event
    * @param distanceMeters The distance from the event that will activate this trigger, in meters
    * @return distanceFromEvent trigger
    */
@@ -260,10 +309,9 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Create a trigger that will be activated when the robot is within a given distance from the
-   * start of an event
+   * Trigger that is high when the robot is within a distance of the start of the given event
    *
-   * @param eventName The event name
+   * @param eventName The name of the event
    * @param distance The distance from the event that will activate this trigger
    * @return distanceFromEvent trigger
    */
@@ -272,11 +320,11 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Create a trigger that will be activated when the robot is within a given distance from the end
-   * of an event
+   * Trigger that is high when the robot is within a distance of the end of the given event
    *
-   * @param eventName The event name
-   * @param distanceMeters The distance from the event that will activate this trigger, in meters
+   * @param eventName The name of the event
+   * @param distanceMeters The distance from the event end that will activate this trigger, in
+   *     meters
    * @return distanceFromEventEnd trigger
    */
   public Trigger distanceFromEventEnd(String eventName, double distanceMeters) {
@@ -286,11 +334,10 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Create a trigger that will be activated when the robot is within a given distance from the end
-   * of an event
+   * Trigger that is high when the robot is within a distance of the end of the given event
    *
-   * @param eventName The event name
-   * @param distance The distance from the event that will activate this trigger
+   * @param eventName The name of the event
+   * @param distance The distance from the event end that will activate this trigger
    * @return distanceFromEventEnd trigger
    */
   public Trigger distanceFromEventEnd(String eventName, Distance distance) {
@@ -298,14 +345,13 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Create a PointTowardsZoneTrigger that will be polled by this auto instead of globally across
-   * all path following commands
+   * Create a point towards zone trigger that is only active while this auto is running
    *
    * @param zoneName The point towards zone name that controls this trigger
    * @return PointTowardsZoneTrigger for this auto
    */
   public Trigger pointTowardsZone(String zoneName) {
-    return new PointTowardsZoneTrigger(autoLoop, zoneName);
+    return condition(() -> EventConditions.isWithinZone(zoneName));
   }
 
   /**
@@ -417,44 +463,6 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Create a trigger with a custom condition. This will be polled by this auto's event loop so that
-   * its condition is only polled when this auto is running.
-   *
-   * @param condition The condition represented by this trigger
-   * @return Custom condition trigger
-   */
-  public Trigger condition(BooleanSupplier condition) {
-    return new Trigger(autoLoop, condition);
-  }
-
-  @Override
-  public void initialize() {
-    autoCommand.initialize();
-    autoTimer.restart();
-    isRunning = true;
-    autoLoop.poll();
-  }
-
-  @Override
-  public void execute() {
-    autoCommand.execute();
-    autoLoop.poll();
-  }
-
-  @Override
-  public boolean isFinished() {
-    return autoCommand.isFinished();
-  }
-
-  @Override
-  public void end(boolean interrupted) {
-    autoCommand.end(interrupted);
-    autoTimer.stop();
-    isRunning = false;
-    autoLoop.poll();
-  }
-
-  /**
    * Get a list of every path in the given auto (depth first)
    *
    * @param autoName Name of the auto to get the path group from
@@ -468,8 +476,8 @@ public class PathPlannerAuto extends Command {
   }
 
   /**
-   * Reloads the autonomous routine with the given JSON object and updates the requirements of this
-   * command.
+   * Reloads the autonomous routine with the given JSON object. The requirements of this command
+   * will be updated the next time it is scheduled.
    *
    * @param autoJson the JSON object representing the updated autonomous routine
    */
@@ -482,13 +490,41 @@ public class PathPlannerAuto extends Command {
   }
 
   private void initFromAutoFile(AutoFile auto, boolean mirror) throws IOException, ParseException {
-    Command cmd = CommandUtil.buildCommand(auto.command(), mirror);
+    Command command = CommandUtil.buildCommand(auto.command(), mirror);
     this.startingPose = auto.getStartingPose(AutoBuilder.isHolonomic(), mirror);
 
     if (auto.resetOdom()) {
-      this.autoCommand = Commands.sequence(AutoBuilder.resetOdom(this.startingPose), cmd);
+      this.autoCommand =
+          Command.sequence(AutoBuilder.resetOdom(this.startingPose), command).named(name);
     } else {
-      this.autoCommand = cmd;
+      this.autoCommand = command;
     }
+  }
+
+  private void stopRunning() {
+    autoTimer.stop();
+    isRunning = false;
+    stopCount++;
+  }
+
+  /**
+   * Wrap a condition so it is only true while this auto is running. The condition is also checked
+   * on the first poll after the auto stops, so events that happen in the auto's final loop are not
+   * missed.
+   */
+  private BooleanSupplier whileRunning(BooleanSupplier condition) {
+    return new BooleanSupplier() {
+      private int lastStopCount = stopCount;
+
+      @Override
+      public boolean getAsBoolean() {
+        // Always poll the condition so that it stays up to date while the auto is not running
+        boolean value = condition.getAsBoolean();
+        boolean active = isRunning || lastStopCount != stopCount;
+        lastStopCount = stopCount;
+
+        return active && value;
+      }
+    };
   }
 }

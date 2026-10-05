@@ -2,13 +2,13 @@ package com.pathplanner.lib.events;
 
 import static org.wpilib.units.Units.Seconds;
 
-import org.wpilib.command2.Command;
+import com.pathplanner.lib.auto.CommandSpec;
 import org.wpilib.units.measure.Time;
 
 /** Event that will cancel a command within the EventScheduler */
 public class CancelCommandEvent extends Event {
 
-  private final Command command;
+  private final CommandSpec command;
 
   /**
    * Create an event to cancel a command
@@ -16,7 +16,7 @@ public class CancelCommandEvent extends Event {
    * @param timestamp The trajectory timestamp for this event
    * @param command The command to cancel
    */
-  public CancelCommandEvent(double timestamp, Command command) {
+  public CancelCommandEvent(double timestamp, CommandSpec command) {
     super(timestamp);
     this.command = command;
   }
@@ -27,17 +27,26 @@ public class CancelCommandEvent extends Event {
    * @param timestamp The trajectory timestamp for this event
    * @param command The command to cancel
    */
-  public CancelCommandEvent(Time timestamp, Command command) {
+  public CancelCommandEvent(Time timestamp, CommandSpec command) {
     this(timestamp.in(Seconds), command);
   }
 
+  /**
+   * Get the command that this event will cancel
+   *
+   * @return The command
+   */
+  public CommandSpec getCommand() {
+    return command;
+  }
+
   @Override
-  public void handleEvent(EventScheduler eventScheduler) {
+  public void handleEvent(EventSchedulerBase eventScheduler) {
     eventScheduler.cancelCommand(command);
   }
 
   @Override
-  public void cancelEvent(EventScheduler eventScheduler) {
+  public void cancelEvent(EventSchedulerBase eventScheduler) {
     // Do nothing, the event scheduler will already cancel all commands
   }
 

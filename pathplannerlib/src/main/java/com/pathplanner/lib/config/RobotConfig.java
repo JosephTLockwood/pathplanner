@@ -58,36 +58,39 @@ public class RobotConfig {
   /** The maximum torque a drive module can apply without slipping the wheels */
   public final double maxTorqueFriction;
 
-  // Validation alerts
-  private static final Alert BAD_GUI_CONFIG =
-      new Alert("PathPlanner", "gui", "GUI Config Couldn't be loaded", Level.HIGH);
+  // Validation alerts. These are in a holder class so they are only created when a config is
+  // validated, since creating an alert requires the WPILib native libraries.
+  private static final class ValidationAlerts {
+    static final Alert BAD_GUI_CONFIG =
+        new Alert("PathPlanner", "gui", "GUI Config Couldn't be loaded", Level.HIGH);
 
-  private static final Alert MOI_ALERT =
-      new Alert("PathPlanner", "moi", "MOI Config Mismatch", Level.HIGH);
+    static final Alert MOI_ALERT =
+        new Alert("PathPlanner", "moi", "MOI Config Mismatch", Level.HIGH);
 
-  private static final Alert MASS_ALERT =
-      new Alert("PathPlanner", "mass", "Mass Config Mismatch", Level.HIGH);
+    static final Alert MASS_ALERT =
+        new Alert("PathPlanner", "mass", "Mass Config Mismatch", Level.HIGH);
 
-  private static final Alert TORQUE_ALERT =
-      new Alert("PathPlanner", "torque", "Torque Friction Mismatch", Level.HIGH);
+    static final Alert TORQUE_ALERT =
+        new Alert("PathPlanner", "torque", "Torque Friction Mismatch", Level.HIGH);
 
-  private static final Alert CURRENT_ALERT =
-      new Alert("PathPlanner", "current", "Drive Current Limit Mismatch", Level.HIGH);
+    static final Alert CURRENT_ALERT =
+        new Alert("PathPlanner", "current", "Drive Current Limit Mismatch", Level.HIGH);
 
-  private static final Alert MOTOR_ALERT =
-      new Alert("PathPlanner", "driveMotor", "Drive Motor Config Mismatch", Level.HIGH);
+    static final Alert MOTOR_ALERT =
+        new Alert("PathPlanner", "driveMotor", "Drive Motor Config Mismatch", Level.HIGH);
 
-  private static final Alert VELOCITY_ALERT =
-      new Alert("PathPlanner", "velocity", "Max Drive Velocity Mismatch", Level.HIGH);
+    static final Alert VELOCITY_ALERT =
+        new Alert("PathPlanner", "velocity", "Max Drive Velocity Mismatch", Level.HIGH);
 
-  private static final Alert COF_ALERT =
-      new Alert("PathPlanner", "wheelCOF", "Wheel COF Mismatch", Level.HIGH);
+    static final Alert COF_ALERT =
+        new Alert("PathPlanner", "wheelCOF", "Wheel COF Mismatch", Level.HIGH);
 
-  private static final Alert RADIUS_ALERT =
-      new Alert("PathPlanner", "wheelRadius", "Wheel Radius Mismatch", Level.HIGH);
+    static final Alert RADIUS_ALERT =
+        new Alert("PathPlanner", "wheelRadius", "Wheel Radius Mismatch", Level.HIGH);
 
-  private static final Alert LOCATION_ALERT =
-      new Alert("PathPlanner", "moduleLocation", "Module Location Mismatch", Level.HIGH);
+    static final Alert LOCATION_ALERT =
+        new Alert("PathPlanner", "moduleLocation", "Module Location Mismatch", Level.HIGH);
+  }
 
   /**
    * Create a robot config object for a HOLONOMIC DRIVE robot
@@ -341,7 +344,7 @@ public class RobotConfig {
     try {
       guiConfig = RobotConfig.fromGUISettings();
     } catch (IOException | ParseException e) {
-      BAD_GUI_CONFIG.set(true);
+      ValidationAlerts.BAD_GUI_CONFIG.set(true);
       return false;
     }
     return validatePhysicalProperties(guiConfig)
@@ -358,21 +361,23 @@ public class RobotConfig {
    */
   private boolean validatePhysicalProperties(RobotConfig guiConfig) {
     if (this.MOI != guiConfig.MOI) {
-      MOI_ALERT.setText(String.format("MOI: %.2f vs %.2f", this.MOI, guiConfig.MOI));
-      MOI_ALERT.set(true);
+      ValidationAlerts.MOI_ALERT.setText(
+          String.format("MOI: %.2f vs %.2f", this.MOI, guiConfig.MOI));
+      ValidationAlerts.MOI_ALERT.set(true);
       return false;
     }
     if (this.massKG != guiConfig.massKG) {
-      MASS_ALERT.setText(String.format("Mass: %.2f vs %.2f kg", this.massKG, guiConfig.massKG));
-      MASS_ALERT.set(true);
+      ValidationAlerts.MASS_ALERT.setText(
+          String.format("Mass: %.2f vs %.2f kg", this.massKG, guiConfig.massKG));
+      ValidationAlerts.MASS_ALERT.set(true);
       return false;
     }
     if (this.maxTorqueFriction != guiConfig.maxTorqueFriction) {
-      TORQUE_ALERT.setText(
+      ValidationAlerts.TORQUE_ALERT.setText(
           String.format(
               "Torque Friction: %.2f vs %.2f",
               this.maxTorqueFriction, guiConfig.maxTorqueFriction));
-      TORQUE_ALERT.set(true);
+      ValidationAlerts.TORQUE_ALERT.set(true);
       return false;
     }
     return true;
@@ -386,24 +391,24 @@ public class RobotConfig {
    */
   private boolean validateDriveSystem(RobotConfig guiConfig) {
     if (this.moduleConfig.driveCurrentLimit != guiConfig.moduleConfig.driveCurrentLimit) {
-      CURRENT_ALERT.setText(
+      ValidationAlerts.CURRENT_ALERT.setText(
           String.format(
               "Drive Current Limit: %.2f vs %.2f",
               this.moduleConfig.driveCurrentLimit, guiConfig.moduleConfig.driveCurrentLimit));
-      CURRENT_ALERT.set(true);
+      ValidationAlerts.CURRENT_ALERT.set(true);
       return false;
     }
     if (!this.moduleConfig.driveMotor.equals(guiConfig.moduleConfig.driveMotor)) {
-      MOTOR_ALERT.setText("Drive Motor configurations differ");
-      MOTOR_ALERT.set(true);
+      ValidationAlerts.MOTOR_ALERT.setText("Drive Motor configurations differ");
+      ValidationAlerts.MOTOR_ALERT.set(true);
       return false;
     }
     if (this.moduleConfig.maxDriveVelocityMPS != guiConfig.moduleConfig.maxDriveVelocityMPS) {
-      VELOCITY_ALERT.setText(
+      ValidationAlerts.VELOCITY_ALERT.setText(
           String.format(
               "Max Drive Velocity: %.2f vs %.2f m/s",
               this.moduleConfig.maxDriveVelocityMPS, guiConfig.moduleConfig.maxDriveVelocityMPS));
-      VELOCITY_ALERT.set(true);
+      ValidationAlerts.VELOCITY_ALERT.set(true);
       return false;
     }
     return true;
@@ -417,19 +422,19 @@ public class RobotConfig {
    */
   private boolean validateWheelProperties(RobotConfig guiConfig) {
     if (this.moduleConfig.wheelCOF != guiConfig.moduleConfig.wheelCOF) {
-      COF_ALERT.setText(
+      ValidationAlerts.COF_ALERT.setText(
           String.format(
               "Wheel COF: %.2f vs %.2f",
               this.moduleConfig.wheelCOF, guiConfig.moduleConfig.wheelCOF));
-      COF_ALERT.set(true);
+      ValidationAlerts.COF_ALERT.set(true);
       return false;
     }
     if (this.moduleConfig.wheelRadiusMeters != guiConfig.moduleConfig.wheelRadiusMeters) {
-      RADIUS_ALERT.setText(
+      ValidationAlerts.RADIUS_ALERT.setText(
           String.format(
               "Wheel Radius: %.3f vs %.3f m",
               this.moduleConfig.wheelRadiusMeters, guiConfig.moduleConfig.wheelRadiusMeters));
-      RADIUS_ALERT.set(true);
+      ValidationAlerts.RADIUS_ALERT.set(true);
       return false;
     }
     return true;
@@ -443,8 +448,8 @@ public class RobotConfig {
    */
   private boolean validateModuleLocations(RobotConfig guiConfig) {
     if (this.moduleLocations.length != guiConfig.moduleLocations.length) {
-      LOCATION_ALERT.setText("Number of modules does not match GUI configuration");
-      LOCATION_ALERT.set(true);
+      ValidationAlerts.LOCATION_ALERT.setText("Number of modules does not match GUI configuration");
+      ValidationAlerts.LOCATION_ALERT.set(true);
       return false;
     }
     StringBuilder locationDifferences = new StringBuilder();
@@ -459,8 +464,8 @@ public class RobotConfig {
       }
     }
     if (hasLocationMismatch) {
-      LOCATION_ALERT.setText(locationDifferences.toString());
-      LOCATION_ALERT.set(true);
+      ValidationAlerts.LOCATION_ALERT.setText(locationDifferences.toString());
+      ValidationAlerts.LOCATION_ALERT.set(true);
       return false;
     }
     return true;

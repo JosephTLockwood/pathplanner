@@ -1,30 +1,26 @@
-package com.pathplanner.lib.auto;
+package com.pathplanner.lib.command3;
 
+import static org.wpilib.units.Units.Seconds;
+
+import com.pathplanner.lib.auto.CommandSpec;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
-import org.wpilib.command2.*;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.ParallelGroupBuilder;
 
-/** Utility class for building Commands v2 commands used in autos */
+/** Utility class for building Commands v3 commands used in autos */
 public class CommandUtil {
+  private CommandUtil() {}
 
   /**
-   * Wraps a command with a functional command that calls the command's initialize, execute, end,
-   * and isFinished methods. This allows a command in the event map to be reused multiple times in
-   * different command groups
+   * Create a command that does nothing and finishes immediately
    *
-   * @param eventCommand the command to wrap
-   * @return a functional command that wraps the given command
+   * @return A command that does nothing
    */
-  public static Command wrappedEventCommand(Command eventCommand) {
-    return new FunctionalCommand(
-        eventCommand::initialize,
-        eventCommand::execute,
-        eventCommand::end,
-        eventCommand::isFinished,
-        eventCommand.getRequirements().toArray(Subsystem[]::new));
+  public static Command none() {
+    return Command.noRequirements(coroutine -> {}).named("None");
   }
 
   /**
@@ -44,7 +40,8 @@ public class CommandUtil {
   }
 
   /**
-   * Builds a command from the given command spec.
+   * Builds a command from the given command spec. Groups are built with the Commands v3 composition
+   * builders, so they require every mechanism required by their commands.
    *
    * @param spec the spec describing the command to build
    * @param mirror Should the paths be mirrored
@@ -55,22 +52,40 @@ public class CommandUtil {
   public static Command buildCommand(CommandSpec spec, boolean mirror)
       throws IOException, ParseException {
     return switch (spec) {
-      case CommandSpec.None none -> Commands.none();
-      case CommandSpec.Wait wait -> Commands.waitSeconds(wait.waitTimeSeconds());
+      case CommandSpec.None none -> none();
+      case CommandSpec.Wait wait ->
+          Command.waitFor(Seconds.of(wait.waitTimeSeconds()))
+              .named("Wait " + wait.waitTimeSeconds() + "s");
       case CommandSpec.Named named -> NamedCommands.getCommand(named.name());
       case CommandSpec.FollowPath path -> AutoBuilder.followPath(path.loadPath(mirror));
+      case CommandSpec.Sequential group when group.commands().isEmpty() -> none();
       case CommandSpec.Sequential group ->
-          new SequentialCommandGroup(buildCommands(group.commands(), mirror));
+          Command.sequence(buildCommands(group.commands(), mirror)).withAutomaticName();
+      case CommandSpec.Parallel group when group.commands().isEmpty() -> none();
       case CommandSpec.Parallel group ->
-          new ParallelCommandGroup(buildCommands(group.commands(), mirror));
-      case CommandSpec.Race group -> new ParallelRaceGroup(buildCommands(group.commands(), mirror));
-      case CommandSpec.Deadline group -> deadlineGroup(buildCommands(group.commands(), mirror));
+          Command.parallel(buildCommands(group.commands(), mirror)).withAutomaticName();
+      case CommandSpec.Race group when group.commands().isEmpty() -> none();
+      case CommandSpec.Race group ->
+          Command.race(buildCommands(group.commands(), mirror)).withAutomaticName();
+      case CommandSpec.Deadline group when group.commands().isEmpty() -> none();
+      case CommandSpec.Deadline group -> {
+        Command[] commands = buildCommands(group.commands(), mirror);
+        Command[] others = new Command[commands.length - 1];
+        System.arraycopy(commands, 1, others, 0, others.length);
+
+        // The deadline is the only required command, every other command is canceled when the
+        // deadline finishes
+        yield new ParallelGroupBuilder()
+            .requiring(commands[0])
+            .optional(others)
+            .withAutomaticName();
+      }
       case CommandSpec.Prebuilt prebuilt -> {
         if (prebuilt.command() instanceof Command command) {
           yield command;
         }
         throw new IllegalArgumentException(
-            "Prebuilt command spec does not contain a Commands v2 command: " + prebuilt.command());
+            "Prebuilt command spec does not contain a Commands v3 command: " + prebuilt.command());
       }
     };
   }
@@ -82,13 +97,5 @@ public class CommandUtil {
       commands[i] = buildCommand(specs.get(i), mirror);
     }
     return commands;
-  }
-
-  private static Command deadlineGroup(Command[] commands) {
-    if (commands.length == 0) {
-      return Commands.none();
-    }
-
-    return new ParallelDeadlineGroup(commands[0], Arrays.copyOfRange(commands, 1, commands.length));
   }
 }

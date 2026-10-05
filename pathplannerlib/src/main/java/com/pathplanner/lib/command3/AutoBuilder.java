@@ -1,8 +1,9 @@
-package com.pathplanner.lib.auto;
+package com.pathplanner.lib.command3;
 
 import static org.wpilib.units.Units.MetersPerSecond;
 
-import com.pathplanner.lib.commands.*;
+import com.pathplanner.lib.auto.AutoBuilderException;
+import com.pathplanner.lib.auto.AutoFile;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PathFollowingController;
 import com.pathplanner.lib.path.PathConstraints;
@@ -12,25 +13,26 @@ import com.pathplanner.lib.util.FlippingUtil;
 import com.pathplanner.lib.util.PPLibTesting;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.*;
 import java.util.stream.Stream;
-import org.wpilib.command2.Command;
-import org.wpilib.command2.Commands;
-import org.wpilib.command2.Subsystem;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
 import org.wpilib.tunable.Selectable;
 import org.wpilib.units.measure.LinearVelocity;
 
-/** Utility class used to build auto routines */
+/** Utility class used to build Commands v3 auto routines */
 public class AutoBuilder {
-
   private static Globals globals = new Globals();
 
   static {
     PPLibTesting.addResetHook(AutoBuilder::resetForTesting);
   }
+
+  private AutoBuilder() {}
 
   /**
    * Configures the AutoBuilder for using PathPlanner's built-in commands.
@@ -48,7 +50,7 @@ public class AutoBuilder {
    * @param robotConfig The robot configuration
    * @param shouldFlipPath Supplier that determines if paths should be flipped to the other side of
    *     the field. This will maintain a global blue alliance origin.
-   * @param driveRequirements the subsystem requirements for the robot's drive train
+   * @param driveRequirements the mechanisms that make up the robot's drive train
    */
   public static void configure(
       Supplier<Pose2d> poseSupplier,
@@ -58,11 +60,12 @@ public class AutoBuilder {
       PathFollowingController controller,
       RobotConfig robotConfig,
       BooleanSupplier shouldFlipPath,
-      Subsystem... driveRequirements) {
+      Mechanism... driveRequirements) {
     if (globals.configured) {
       DriverStationErrors.reportError(
           "Auto builder has already been configured. This is likely in error.", true);
     }
+
     globals.pathFollowingCommandBuilder =
         (path) ->
             new FollowPathCommand(
@@ -79,6 +82,8 @@ public class AutoBuilder {
     globals.configured = true;
     globals.shouldFlipPath = shouldFlipPath;
     globals.isHolonomic = robotConfig.isHolonomic;
+    globals.driveRequirements = Set.of(driveRequirements);
+
     globals.pathfindToPoseCommandBuilder =
         (pose, constraints, goalEndVel) ->
             new PathfindingCommand(
@@ -118,7 +123,7 @@ public class AutoBuilder {
    * @param robotConfig The robot configuration
    * @param shouldFlipPath Supplier that determines if paths should be flipped to the other side of
    *     the field. This will maintain a global blue alliance origin.
-   * @param driveRequirements the subsystem requirements for the robot's drive train
+   * @param driveRequirements the mechanisms that make up the robot's drive train
    */
   public static void configure(
       Supplier<Pose2d> poseSupplier,
@@ -128,7 +133,7 @@ public class AutoBuilder {
       PathFollowingController controller,
       RobotConfig robotConfig,
       BooleanSupplier shouldFlipPath,
-      Subsystem... driveRequirements) {
+      Mechanism... driveRequirements) {
     configure(
         poseSupplier,
         resetPose,
@@ -141,37 +146,8 @@ public class AutoBuilder {
   }
 
   /**
-   * Holder for all global variables directly referenced by AutoBuilder.
-   *
-   * <p>This class exists to ensure that {@link #resetForTesting()} resets all static state in
-   * AutoBuilder.
-   */
-  private static class Globals {
-
-    boolean configured = false;
-
-    Supplier<Pose2d> poseSupplier;
-
-    Function<PathPlannerPath, Command> pathFollowingCommandBuilder;
-
-    Consumer<Pose2d> resetPose;
-
-    BooleanSupplier shouldFlipPath;
-
-    boolean isHolonomic;
-
-    // Pathfinding builders
-    boolean pathfindingConfigured = false;
-
-    TriFunction<Pose2d, PathConstraints, Double, Command> pathfindToPoseCommandBuilder;
-
-    BiFunction<PathPlannerPath, PathConstraints, Command> pathfindThenFollowPathCommandBuilder;
-  }
-
-  /**
    * Configures the AutoBuilder with custom path following command builder. Building pathfinding
-   * commands is not supported if using a custom command builder. Custom path following commands
-   * will not have the path flipped for them, and event markers will not be triggered automatically.
+   * commands is not supported if using a custom command builder.
    *
    * @param pathFollowingCommandBuilder a function that builds a command to follow a given path
    * @param poseSupplier a supplier for the robot's current pose
@@ -192,6 +168,7 @@ public class AutoBuilder {
       DriverStationErrors.reportError(
           "Auto builder has already been configured. This is likely in error.", true);
     }
+
     globals.pathFollowingCommandBuilder = pathFollowingCommandBuilder;
     globals.poseSupplier = poseSupplier;
     globals.resetPose = resetPose;
@@ -203,8 +180,7 @@ public class AutoBuilder {
 
   /**
    * Configures the AutoBuilder with custom path following command builder. Building pathfinding
-   * commands is not supported if using a custom command builder. Custom path following commands
-   * will not have the path flipped for them, and event markers will not be triggered automatically.
+   * commands is not supported if using a custom command builder.
    *
    * @param pathFollowingCommandBuilder a function that builds a command to follow a given path
    * @param poseSupplier a supplier for the robot's current pose
@@ -238,9 +214,10 @@ public class AutoBuilder {
   }
 
   /**
-   * Resets {@code AutoBuilder} static state to the values set at class initialization time.
+   * Resets all static state to the values set at class initialization time.
    *
-   * <p>This method should not be called during a competition.
+   * <p>This method should not be called during a competition. It is intended to be called by
+   * PPLibTesting.resetForTesting().
    */
   public static void resetForTesting() {
     globals = new Globals();
@@ -277,6 +254,7 @@ public class AutoBuilder {
       throw new AutoBuilderException(
           "Auto builder was used to build a path following command before being configured");
     }
+
     return globals.pathFollowingCommandBuilder.apply(path);
   }
 
@@ -295,6 +273,7 @@ public class AutoBuilder {
       throw new AutoBuilderException(
           "Auto builder was used to build a pathfinding command before being configured");
     }
+
     return globals.pathfindToPoseCommandBuilder.apply(pose, constraints, goalEndVelocity);
   }
 
@@ -337,10 +316,22 @@ public class AutoBuilder {
    */
   public static Command pathfindToPoseFlipped(
       Pose2d pose, PathConstraints constraints, double goalEndVelocity) {
-    return Commands.either(
-        pathfindToPose(FlippingUtil.flipFieldPose(pose), constraints, goalEndVelocity),
-        pathfindToPose(pose, constraints, goalEndVelocity),
-        globals.shouldFlipPath);
+    Command pathfindToFlippedPose =
+        pathfindToPose(FlippingUtil.flipFieldPose(pose), constraints, goalEndVelocity);
+    Command pathfindToBluePose = pathfindToPose(pose, constraints, goalEndVelocity);
+    BooleanSupplier shouldFlip = globals.shouldFlipPath;
+
+    return Command.requiring(globals.driveRequirements)
+        .executing(
+            coroutine -> {
+              // Decide which side of the field to pathfind to when the command is run
+              if (shouldFlip.getAsBoolean()) {
+                coroutine.await(pathfindToFlippedPose);
+              } else {
+                coroutine.await(pathfindToBluePose);
+              }
+            })
+        .named("Pathfind to Pose (Auto Flipped)");
   }
 
   /**
@@ -387,12 +378,13 @@ public class AutoBuilder {
       throw new AutoBuilderException(
           "Auto builder was used to build a pathfinding command before being configured");
     }
+
     return globals.pathfindThenFollowPathCommandBuilder.apply(goalPath, pathfindingConstraints);
   }
 
   /**
-   * Create and populate a selectable chooser with all PathPlannerAutos in the project. The default
-   * option will be Commands.none()
+   * Create and populate a selectable with every PathPlanner auto in the project. The default option
+   * will be a command that does nothing.
    *
    * @return Selectable populated with all autos
    */
@@ -401,11 +393,11 @@ public class AutoBuilder {
   }
 
   /**
-   * Create and populate a selectable chooser with all PathPlannerAutos in the project
+   * Create and populate a selectable with every PathPlanner auto in the project
    *
    * @param defaultAutoName The name of the auto that should be the default option. If this is an
    *     empty string, or if an auto with the given name does not exist, the default option will be
-   *     Commands.none()
+   *     a command that does nothing.
    * @return Selectable populated with all autos
    */
   public static Selectable<Command> buildAutoChooser(String defaultAutoName) {
@@ -413,11 +405,11 @@ public class AutoBuilder {
   }
 
   /**
-   * Create and populate a selectable chooser with all PathPlannerAutos in the project. The default
-   * option will be Commands.none()
+   * Create and populate a selectable with every PathPlanner auto in the project. The default option
+   * will be a command that does nothing.
    *
    * @param optionsModifier A lambda function that can be used to modify the options before they go
-   *     into the AutoChooser
+   *     into the selectable
    * @return Selectable populated with all autos
    */
   public static Selectable<Command> buildAutoChooserWithOptionsModifier(
@@ -426,13 +418,13 @@ public class AutoBuilder {
   }
 
   /**
-   * Create and populate a selectable chooser with all PathPlannerAutos in the project
+   * Create and populate a selectable with every PathPlanner auto in the project
    *
    * @param defaultAutoName The name of the auto that should be the default option. If this is an
    *     empty string, or if an auto with the given name does not exist, the default option will be
-   *     Commands.none()
+   *     a command that does nothing.
    * @param optionsModifier A lambda function that can be used to modify the options before they go
-   *     into the AutoChooser
+   *     into the selectable
    * @return Selectable populated with all autos
    */
   public static Selectable<Command> buildAutoChooserWithOptionsModifier(
@@ -442,25 +434,32 @@ public class AutoBuilder {
       throw new RuntimeException(
           "AutoBuilder was not configured before attempting to build an auto chooser");
     }
+
     Selectable<Command> chooser = new Selectable<>();
     List<String> autoNames = getAllAutoNames();
+
     PathPlannerAuto defaultOption = null;
     List<PathPlannerAuto> options = new ArrayList<>();
+
     for (String autoName : autoNames) {
       PathPlannerAuto auto = new PathPlannerAuto(autoName);
+
       if (!defaultAutoName.isEmpty() && defaultAutoName.equals(autoName)) {
         defaultOption = auto;
       } else {
         options.add(auto);
       }
     }
+
     if (defaultOption == null) {
-      chooser.addDefault("None", Commands.none());
+      chooser.addDefault("None", CommandUtil.none());
     } else {
-      chooser.addDefault(defaultOption.getName(), defaultOption);
-      chooser.add("None", Commands.none());
+      chooser.addDefault(defaultOption.name(), defaultOption);
+      chooser.add("None", CommandUtil.none());
     }
-    optionsModifier.apply(options.stream()).forEach(auto -> chooser.add(auto.getName(), auto));
+
+    optionsModifier.apply(options.stream()).forEach(auto -> chooser.add(auto.name(), auto));
+
     return chooser;
   }
 
@@ -482,6 +481,7 @@ public class AutoBuilder {
     if (!AutoBuilder.isConfigured()) {
       throw new RuntimeException("AutoBuilder was not configured before use");
     }
+
     return globals.isHolonomic;
   }
 
@@ -505,21 +505,31 @@ public class AutoBuilder {
     if (!AutoBuilder.isConfigured()) {
       throw new RuntimeException("AutoBuilder was not configured before use");
     }
-    return Commands.runOnce(
-        () -> {
-          boolean flip = globals.shouldFlipPath.getAsBoolean();
-          if (flip) {
-            globals.resetPose.accept(FlippingUtil.flipFieldPose(bluePose));
-          } else {
-            globals.resetPose.accept(bluePose);
-          }
-        });
+
+    BooleanSupplier shouldFlip = globals.shouldFlipPath;
+    Consumer<Pose2d> resetPose = globals.resetPose;
+
+    return Command.noRequirements(
+            coroutine -> {
+              if (shouldFlip.getAsBoolean()) {
+                resetPose.accept(FlippingUtil.flipFieldPose(bluePose));
+              } else {
+                resetPose.accept(bluePose);
+              }
+            })
+        .named("Reset Odometry");
   }
 
-  /** Functional interface for a function that takes 3 inputs */
+  /**
+   * Functional interface for a function that takes 3 inputs
+   *
+   * @param <In1> input 1 type
+   * @param <In2> input 2 type
+   * @param <In3> input 3 type
+   * @param <Out> output type
+   */
   @FunctionalInterface
   public interface TriFunction<In1, In2, In3, Out> {
-
     /**
      * Apply the inputs to this function
      *
@@ -529,5 +539,24 @@ public class AutoBuilder {
      * @return Output
      */
     Out apply(In1 in1, In2 in2, In3 in3);
+  }
+
+  /**
+   * The static state of AutoBuilder, kept in one object so that {@link #resetForTesting()} resets
+   * all of it.
+   */
+  private static class Globals {
+    boolean configured = false;
+    Supplier<Pose2d> poseSupplier;
+    Function<PathPlannerPath, Command> pathFollowingCommandBuilder;
+    Consumer<Pose2d> resetPose;
+    BooleanSupplier shouldFlipPath;
+    boolean isHolonomic;
+    Set<Mechanism> driveRequirements = Set.of();
+
+    // Pathfinding builders
+    boolean pathfindingConfigured = false;
+    TriFunction<Pose2d, PathConstraints, Double, Command> pathfindToPoseCommandBuilder;
+    BiFunction<PathPlannerPath, PathConstraints, Command> pathfindThenFollowPathCommandBuilder;
   }
 }

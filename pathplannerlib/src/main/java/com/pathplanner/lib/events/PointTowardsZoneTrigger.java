@@ -1,14 +1,11 @@
 package com.pathplanner.lib.events;
 
-import java.util.HashMap;
 import java.util.function.BooleanSupplier;
 import org.wpilib.command2.button.Trigger;
 import org.wpilib.event.EventLoop;
 
 /** A trigger that will be controlled by the robot entering/leaving a point towards zone */
 public class PointTowardsZoneTrigger extends Trigger {
-
-  private static final HashMap<String, Boolean> zoneConditions = new HashMap<>();
 
   /**
    * Create a new PointTowardsZoneTrigger. This will run on the EventScheduler's event loop, which
@@ -38,11 +35,7 @@ public class PointTowardsZoneTrigger extends Trigger {
    * @return A boolean supplier to poll the zone's condition
    */
   private static BooleanSupplier pollCondition(String name) {
-    // Ensure there is a condition in the map for this name
-    if (!zoneConditions.containsKey(name)) {
-      zoneConditions.put(name, false);
-    }
-    return () -> zoneConditions.get(name);
+    return () -> EventConditions.isWithinZone(name);
   }
 
   /**
@@ -52,6 +45,6 @@ public class PointTowardsZoneTrigger extends Trigger {
    * @param withinZone Is the robot within the point towards zone with the given name
    */
   protected static void setWithinZone(String name, boolean withinZone) {
-    zoneConditions.put(name, withinZone);
+    EventConditions.setWithinZone(name, withinZone);
   }
 }
