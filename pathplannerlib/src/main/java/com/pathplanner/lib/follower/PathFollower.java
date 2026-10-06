@@ -4,6 +4,7 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PathFollowingController;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.trajectory.PathPlannerTrajectory;
+import com.pathplanner.lib.trajectory.PathPlannerTrajectoryState;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.PPLibTelemetry;
 import com.pathplanner.lib.util.PathPlannerLogging;
@@ -64,7 +65,7 @@ public class PathFollower {
 
     this.path = this.originalPath;
     // Ensure the ideal trajectory is generated
-    this.path.getIdealTrajectory(this.robotConfig).ifPresent(traj -> this.trajectory = traj);
+    this.path.getIdealTrajectory(this.robotConfig);
   }
 
   /**
@@ -134,19 +135,33 @@ public class PathFollower {
     }
 
     Pose2d currentPose = poseSupplier.get();
-    ChassisVelocities currentSpeeds = speedsSupplier.get();
-
-    ChassisVelocities targetSpeeds =
-        controller.calculateRobotRelativeSpeeds(currentPose, targetState);
-
-    double currentVel = Math.hypot(currentSpeeds.vx, currentSpeeds.vy);
-
     PPLibTelemetry.setCurrentPose(currentPose);
     PathPlannerLogging.logCurrentPose(currentPose);
 
+    driveToState(controller, currentPose, speedsSupplier.get(), targetState, output);
+  }
+
+  /**
+   * Drive the robot towards a target state, and send the target to telemetry
+   *
+   * @param controller Path following controller
+   * @param currentPose The current field-relative pose of the robot
+   * @param currentSpeeds The current robot-relative chassis speeds
+   * @param targetState The state to drive towards
+   * @param output Output function for the robot-relative speeds and feedforwards
+   */
+  static void driveToState(
+      PathFollowingController controller,
+      Pose2d currentPose,
+      ChassisVelocities currentSpeeds,
+      PathPlannerTrajectoryState targetState,
+      BiConsumer<ChassisVelocities, DriveFeedforwards> output) {
+    ChassisVelocities targetSpeeds =
+        controller.calculateRobotRelativeSpeeds(currentPose, targetState);
+    double currentVel = Math.hypot(currentSpeeds.vx, currentSpeeds.vy);
+
     PPLibTelemetry.setTargetPose(targetState.pose);
     PathPlannerLogging.logTargetPose(targetState.pose);
-
     PPLibTelemetry.setVelocities(
         currentVel, targetState.linearVelocity, currentSpeeds.omega, targetSpeeds.omega);
 
@@ -175,7 +190,6 @@ public class PathFollower {
     }
     following = false;
 
-    ActivePathState.setCurrentPathName("");
     ActivePathState.setCurrentTrajectory(null);
 
     // Only output 0 speeds when ending a path that is supposed to stop, this allows interrupting
@@ -185,24 +199,5 @@ public class PathFollower {
     }
 
     PathPlannerLogging.logActivePath(null);
-  }
-
-  /**
-   * Get the path given to this follower, before any flipping
-   *
-   * @return The original path
-   */
-  public PathPlannerPath getOriginalPath() {
-    return originalPath;
-  }
-
-  /**
-   * Get the trajectory being followed. This is the ideal trajectory until {@link #start()} is
-   * called.
-   *
-   * @return The trajectory, or null if it has not been generated yet
-   */
-  public PathPlannerTrajectory getTrajectory() {
-    return trajectory;
   }
 }

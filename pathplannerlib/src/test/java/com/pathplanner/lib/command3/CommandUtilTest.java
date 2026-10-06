@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.wpilib.units.Units.Seconds;
 
 import com.pathplanner.lib.auto.CommandSpec;
+import com.pathplanner.lib.auto.CommandSpec.GroupType;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.wpilib.command3.Command;
+import org.wpilib.command3.Mechanism;
 
 class CommandUtilTest extends CommandsV3TestBase {
   private final List<String> log = new ArrayList<>();
@@ -39,7 +41,10 @@ class CommandUtilTest extends CommandsV3TestBase {
     NamedCommands.registerCommand("B", logged("B", 0.1));
 
     runToCompletion(
-        build(new CommandSpec.Sequential(List.of(CommandSpec.named("A"), CommandSpec.named("B")))));
+        build(
+            new CommandSpec.Group(
+                GroupType.SEQUENTIAL,
+                List.of(new CommandSpec.Named("A"), new CommandSpec.Named("B")))));
 
     assertEquals(List.of("A start", "A end", "B start", "B end"), log);
   }
@@ -51,8 +56,9 @@ class CommandUtilTest extends CommandsV3TestBase {
 
     runToCompletion(
         build(
-            new CommandSpec.Parallel(
-                List.of(CommandSpec.named("Short"), CommandSpec.named("Long")))));
+            new CommandSpec.Group(
+                GroupType.PARALLEL,
+                List.of(new CommandSpec.Named("Short"), new CommandSpec.Named("Long")))));
 
     assertTrue(log.contains("Short end"));
     assertTrue(log.contains("Long end"));
@@ -66,7 +72,9 @@ class CommandUtilTest extends CommandsV3TestBase {
 
     runToCompletion(
         build(
-            new CommandSpec.Race(List.of(CommandSpec.named("Long"), CommandSpec.named("Short")))));
+            new CommandSpec.Group(
+                GroupType.RACE,
+                List.of(new CommandSpec.Named("Long"), new CommandSpec.Named("Short")))));
 
     assertTrue(log.contains("Short end"));
     assertTrue(log.contains("Long canceled"));
@@ -79,8 +87,9 @@ class CommandUtilTest extends CommandsV3TestBase {
 
     runToCompletion(
         build(
-            new CommandSpec.Deadline(
-                List.of(CommandSpec.named("Deadline"), CommandSpec.named("Other")))));
+            new CommandSpec.Group(
+                GroupType.DEADLINE,
+                List.of(new CommandSpec.Named("Deadline"), new CommandSpec.Named("Other")))));
 
     assertTrue(log.contains("Deadline end"));
     assertTrue(log.contains("Other canceled"));
@@ -93,8 +102,9 @@ class CommandUtilTest extends CommandsV3TestBase {
 
     runToCompletion(
         build(
-            new CommandSpec.Deadline(
-                List.of(CommandSpec.named("Deadline"), CommandSpec.named("Other")))));
+            new CommandSpec.Group(
+                GroupType.DEADLINE,
+                List.of(new CommandSpec.Named("Deadline"), new CommandSpec.Named("Other")))));
 
     assertTrue(log.indexOf("Other end") < log.indexOf("Deadline end"));
     assertFalse(log.contains("Deadline canceled"));
@@ -114,10 +124,10 @@ class CommandUtilTest extends CommandsV3TestBase {
   void emptyGroupsFinishImmediately() throws Exception {
     for (CommandSpec spec :
         List.of(
-            new CommandSpec.Sequential(List.of()),
-            new CommandSpec.Parallel(List.of()),
-            new CommandSpec.Race(List.of()),
-            new CommandSpec.Deadline(List.of()),
+            new CommandSpec.Group(GroupType.SEQUENTIAL, List.of()),
+            new CommandSpec.Group(GroupType.PARALLEL, List.of()),
+            new CommandSpec.Group(GroupType.RACE, List.of()),
+            new CommandSpec.Group(GroupType.DEADLINE, List.of()),
             new CommandSpec.None())) {
       Command command = build(spec);
       scheduler.schedule(command);
@@ -139,13 +149,14 @@ class CommandUtilTest extends CommandsV3TestBase {
 
   @Test
   void groupsRequireTheirCommandsMechanisms() throws Exception {
-    var intake = new TestMechanism("Intake", scheduler);
+    var intake = new Mechanism() {};
     NamedCommands.registerCommand("Intake", runForever(intake, "Intake"));
 
     Command group =
         build(
-            new CommandSpec.Sequential(
-                List.of(new CommandSpec.Wait(0.1), CommandSpec.named("Intake"))));
+            new CommandSpec.Group(
+                GroupType.SEQUENTIAL,
+                List.of(new CommandSpec.Wait(0.1), new CommandSpec.Named("Intake"))));
     assertTrue(group.requirements().contains(intake));
   }
 }

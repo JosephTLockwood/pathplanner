@@ -21,9 +21,8 @@ import org.wpilib.system.Filesystem;
  *
  * @param command The command that the auto runs
  * @param resetOdom Should the auto reset odometry to the starting pose of the first path
- * @param choreoAuto True if the paths in this auto are Choreo trajectories
  */
-public record AutoFile(CommandSpec command, boolean resetOdom, boolean choreoAuto) {
+public record AutoFile(CommandSpec command, boolean resetOdom) {
   /**
    * Load an auto file from the "deploy/pathplanner/autos" directory
    *
@@ -34,7 +33,14 @@ public record AutoFile(CommandSpec command, boolean resetOdom, boolean choreoAut
    * @throws FileVersionException If the file version does not match the expected version
    */
   public static AutoFile fromFile(String autoName) throws IOException, ParseException {
-    JSONObject json = readAutoJson(autoName);
+    JSONObject json;
+    try (BufferedReader br =
+        new BufferedReader(
+            new FileReader(
+                new File(
+                    Filesystem.getDeployDirectory(), "pathplanner/autos/" + autoName + ".auto")))) {
+      json = (JSONObject) new JSONParser().parse(br);
+    }
 
     String version = json.get("version").toString();
     String[] versions = version.split("\\.");
@@ -56,7 +62,7 @@ public record AutoFile(CommandSpec command, boolean resetOdom, boolean choreoAut
     boolean choreoAuto = autoJson.get("choreoAuto") != null && (boolean) autoJson.get("choreoAuto");
     boolean resetOdom = autoJson.get("resetOdom") != null && (boolean) autoJson.get("resetOdom");
     CommandSpec command = CommandSpec.fromJson((JSONObject) autoJson.get("command"), choreoAuto);
-    return new AutoFile(command, resetOdom, choreoAuto);
+    return new AutoFile(command, resetOdom);
   }
 
   /**
@@ -115,21 +121,5 @@ public record AutoFile(CommandSpec command, boolean resetOdom, boolean choreoAut
         .filter(name -> name.endsWith(".auto"))
         .map(name -> name.substring(0, name.lastIndexOf(".")))
         .collect(Collectors.toList());
-  }
-
-  private static JSONObject readAutoJson(String autoName) throws IOException, ParseException {
-    try (BufferedReader br =
-        new BufferedReader(
-            new FileReader(
-                new File(
-                    Filesystem.getDeployDirectory(), "pathplanner/autos/" + autoName + ".auto")))) {
-      StringBuilder fileContentBuilder = new StringBuilder();
-      String line;
-      while ((line = br.readLine()) != null) {
-        fileContentBuilder.append(line);
-      }
-
-      return (JSONObject) new JSONParser().parse(fileContentBuilder.toString());
-    }
   }
 }

@@ -29,40 +29,9 @@ import these classes from the `com.pathplanner.lib.command3` package instead of 
 
 ## Configure AutoBuilder
 
-AutoBuilder is configured the same way as with Commands v2, except the drive requirements are Commands v3 mechanisms.
-
-```Java
-import com.pathplanner.lib.command3.AutoBuilder;
-
-public class Drive implements Mechanism {
-  public Drive() {
-    // All other mechanism initialization
-    // ...
-
-    RobotConfig config;
-    try {
-      config = RobotConfig.fromGUISettings();
-    } catch (Exception e) {
-      // Handle exception as needed
-      throw new RuntimeException(e);
-    }
-
-    AutoBuilder.configure(
-        this::getPose, // Robot pose supplier
-        this::resetPose, // Method to reset odometry (will be called if your auto has a starting pose)
-        this::getRobotRelativeSpeeds, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-        (speeds, feedforwards) -> driveRobotRelative(speeds), // Drive the robot given ROBOT RELATIVE ChassisSpeeds
-        new PPHolonomicDriveController(
-            new PIDConstants(5.0, 0.0, 0.0), // Translation PID constants
-            new PIDConstants(5.0, 0.0, 0.0) // Rotation PID constants
-        ),
-        config, // The robot configuration
-        this::isRedAlliance, // Should paths be flipped to the red side of the field
-        this // The drive mechanism, which path following commands will require
-    );
-  }
-}
-```
+Configure AutoBuilder as shown in [Build an Auto](pplib-Build-an-Auto.md), with two differences: import
+`com.pathplanner.lib.command3.AutoBuilder`, and pass your drive `Mechanism` (instead of a `Subsystem`) as the last
+argument. Path following commands will require that mechanism.
 
 ## Named Commands
 

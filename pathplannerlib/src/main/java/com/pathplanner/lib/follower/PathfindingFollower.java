@@ -257,22 +257,7 @@ public class PathfindingFollower {
 
     if (currentTrajectory != null) {
       var targetState = currentTrajectory.sample(timer.get() + timeOffset);
-
-      ChassisVelocities targetSpeeds =
-          controller.calculateRobotRelativeSpeeds(currentPose, targetState);
-
-      double currentVel = Math.hypot(currentSpeeds.vx, currentSpeeds.vy);
-
-      PPLibTelemetry.setCurrentPose(currentPose);
-      PathPlannerLogging.logCurrentPose(currentPose);
-
-      PPLibTelemetry.setTargetPose(targetState.pose);
-      PathPlannerLogging.logTargetPose(targetState.pose);
-
-      PPLibTelemetry.setVelocities(
-          currentVel, targetState.linearVelocity, currentSpeeds.omega, targetSpeeds.omega);
-
-      output.accept(targetSpeeds, targetState.feedforwards);
+      PathFollower.driveToState(controller, currentPose, currentSpeeds, targetState, output);
     }
   }
 

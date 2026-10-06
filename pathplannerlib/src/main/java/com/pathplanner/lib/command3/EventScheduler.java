@@ -67,16 +67,6 @@ public class EventScheduler extends EventSchedulerBase {
   }
 
   /**
-   * Get the event requirements for the given path
-   *
-   * @param path The path to get all requirements for
-   * @return Set of event requirements for the given path
-   */
-  public static Set<Mechanism> getSchedulerRequirements(PathPlannerPath path) {
-    return new EventScheduler().buildEventCommands(path);
-  }
-
-  /**
    * Create a command that handles the events of a trajectory. This command should be forked by the
    * command that is following the trajectory, so that it is canceled when the path ends. It does
    * not require any mechanisms.
@@ -116,7 +106,6 @@ public class EventScheduler extends EventSchedulerBase {
               for (Event e : upcomingEvents) {
                 e.cancelEvent(this);
               }
-              upcomingEvents.clear();
             })
         .named("PathPlanner Events");
   }

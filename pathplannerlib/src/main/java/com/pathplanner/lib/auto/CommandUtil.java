@@ -59,12 +59,15 @@ public class CommandUtil {
       case CommandSpec.Wait wait -> Commands.waitSeconds(wait.waitTimeSeconds());
       case CommandSpec.Named named -> NamedCommands.getCommand(named.name());
       case CommandSpec.FollowPath path -> AutoBuilder.followPath(path.loadPath(mirror));
-      case CommandSpec.Sequential group ->
-          new SequentialCommandGroup(buildCommands(group.commands(), mirror));
-      case CommandSpec.Parallel group ->
-          new ParallelCommandGroup(buildCommands(group.commands(), mirror));
-      case CommandSpec.Race group -> new ParallelRaceGroup(buildCommands(group.commands(), mirror));
-      case CommandSpec.Deadline group -> deadlineGroup(buildCommands(group.commands(), mirror));
+      case CommandSpec.Group group -> {
+        Command[] commands = buildCommands(group.commands(), mirror);
+        yield switch (group.type()) {
+          case SEQUENTIAL -> new SequentialCommandGroup(commands);
+          case PARALLEL -> new ParallelCommandGroup(commands);
+          case RACE -> new ParallelRaceGroup(commands);
+          case DEADLINE -> deadlineGroup(commands);
+        };
+      }
       case CommandSpec.Prebuilt prebuilt -> {
         if (prebuilt.command() instanceof Command command) {
           yield command;

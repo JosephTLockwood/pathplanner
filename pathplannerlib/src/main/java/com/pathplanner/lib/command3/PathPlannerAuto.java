@@ -45,7 +45,6 @@ public class PathPlannerAuto implements Command {
 
   private Command autoCommand;
   private Pose2d startingPose;
-  private boolean isRunning = false;
   private int stopCount = 0;
 
   /**
@@ -156,7 +155,6 @@ public class PathPlannerAuto implements Command {
 
   @Override
   public void run(Coroutine coroutine) {
-    isRunning = true;
     autoTimer.restart();
 
     coroutine.await(autoCommand);
@@ -216,7 +214,7 @@ public class PathPlannerAuto implements Command {
    * @return isRunning trigger
    */
   public Trigger isRunning() {
-    return new Trigger(scheduler, () -> isRunning);
+    return new Trigger(scheduler, autoTimer::isRunning);
   }
 
   /**
@@ -265,7 +263,7 @@ public class PathPlannerAuto implements Command {
    * Create an event trigger that is only active while this auto is running
    *
    * @param eventName The event name that controls this trigger
-   * @return EventTrigger for this auto
+   * @return Event trigger for this auto
    */
   public Trigger event(String eventName) {
     return condition(EventTrigger.pollCondition(eventName));
@@ -348,7 +346,7 @@ public class PathPlannerAuto implements Command {
    * Create a point towards zone trigger that is only active while this auto is running
    *
    * @param zoneName The point towards zone name that controls this trigger
-   * @return PointTowardsZoneTrigger for this auto
+   * @return Point towards zone trigger for this auto
    */
   public Trigger pointTowardsZone(String zoneName) {
     return condition(() -> EventConditions.isWithinZone(zoneName));
@@ -503,7 +501,6 @@ public class PathPlannerAuto implements Command {
 
   private void stopRunning() {
     autoTimer.stop();
-    isRunning = false;
     stopCount++;
   }
 
@@ -520,7 +517,7 @@ public class PathPlannerAuto implements Command {
       public boolean getAsBoolean() {
         // Always poll the condition so that it stays up to date while the auto is not running
         boolean value = condition.getAsBoolean();
-        boolean active = isRunning || lastStopCount != stopCount;
+        boolean active = autoTimer.isRunning() || lastStopCount != stopCount;
         lastStopCount = stopCount;
 
         return active && value;

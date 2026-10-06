@@ -62,10 +62,8 @@ public class FollowPathCommand extends Command {
         new PathFollower(
             path, poseSupplier, speedsSupplier, output, controller, robotConfig, shouldFlipPath);
     this.eventScheduler = new EventScheduler();
-
     Set<Subsystem> driveRequirements = Set.of(requirements);
     addRequirements(requirements);
-
     // Add all event scheduler requirements to this command's requirements
     var eventReqs = eventScheduler.buildEventCommands(path);
     if (!Collections.disjoint(driveRequirements, eventReqs)) {

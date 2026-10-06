@@ -13,7 +13,6 @@ import com.pathplanner.lib.util.FlippingUtil;
 import com.pathplanner.lib.util.PPLibTesting;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.function.*;
 import java.util.stream.Stream;
 import org.wpilib.command3.Command;
@@ -61,13 +60,8 @@ public class AutoBuilder {
       RobotConfig robotConfig,
       BooleanSupplier shouldFlipPath,
       Mechanism... driveRequirements) {
-    if (globals.configured) {
-      DriverStationErrors.reportError(
-          "Auto builder has already been configured. This is likely in error.", true);
-    }
-
-    globals.pathFollowingCommandBuilder =
-        (path) ->
+    configureCustom(
+        path ->
             new FollowPathCommand(
                 path,
                 poseSupplier,
@@ -76,13 +70,11 @@ public class AutoBuilder {
                 controller,
                 robotConfig,
                 shouldFlipPath,
-                driveRequirements);
-    globals.poseSupplier = poseSupplier;
-    globals.resetPose = resetPose;
-    globals.configured = true;
-    globals.shouldFlipPath = shouldFlipPath;
-    globals.isHolonomic = robotConfig.isHolonomic;
-    globals.driveRequirements = Set.of(driveRequirements);
+                driveRequirements),
+        poseSupplier,
+        resetPose,
+        shouldFlipPath,
+        robotConfig.isHolonomic);
 
     globals.pathfindToPoseCommandBuilder =
         (pose, constraints, goalEndVel) ->
@@ -274,7 +266,7 @@ public class AutoBuilder {
           "Auto builder was used to build a pathfinding command before being configured");
     }
 
-    return globals.pathfindToPoseCommandBuilder.apply(pose, constraints, goalEndVelocity);
+    return globals.pathfindToPoseCommandBuilder.build(pose, constraints, goalEndVelocity);
   }
 
   /**
@@ -321,16 +313,12 @@ public class AutoBuilder {
     Command pathfindToBluePose = pathfindToPose(pose, constraints, goalEndVelocity);
     BooleanSupplier shouldFlip = globals.shouldFlipPath;
 
-    return Command.requiring(globals.driveRequirements)
+    // Decide which side of the field to pathfind to when the command is run
+    return Command.requiring(pathfindToBluePose.requirements())
         .executing(
-            coroutine -> {
-              // Decide which side of the field to pathfind to when the command is run
-              if (shouldFlip.getAsBoolean()) {
-                coroutine.await(pathfindToFlippedPose);
-              } else {
-                coroutine.await(pathfindToBluePose);
-              }
-            })
+            coroutine ->
+                coroutine.await(
+                    shouldFlip.getAsBoolean() ? pathfindToFlippedPose : pathfindToBluePose))
         .named("Pathfind to Pose (Auto Flipped)");
   }
 
@@ -510,35 +498,15 @@ public class AutoBuilder {
     Consumer<Pose2d> resetPose = globals.resetPose;
 
     return Command.noRequirements(
-            _ -> {
-              if (shouldFlip.getAsBoolean()) {
-                resetPose.accept(FlippingUtil.flipFieldPose(bluePose));
-              } else {
-                resetPose.accept(bluePose);
-              }
-            })
+            _ ->
+                resetPose.accept(
+                    shouldFlip.getAsBoolean() ? FlippingUtil.flipFieldPose(bluePose) : bluePose))
         .named("Reset Odometry");
   }
 
-  /**
-   * Functional interface for a function that takes 3 inputs
-   *
-   * @param <In1> input 1 type
-   * @param <In2> input 2 type
-   * @param <In3> input 3 type
-   * @param <Out> output type
-   */
   @FunctionalInterface
-  public interface TriFunction<In1, In2, In3, Out> {
-    /**
-     * Apply the inputs to this function
-     *
-     * @param in1 Input 1
-     * @param in2 Input 2
-     * @param in3 Input 3
-     * @return Output
-     */
-    Out apply(In1 in1, In2 in2, In3 in3);
+  private interface PathfindToPoseBuilder {
+    Command build(Pose2d pose, PathConstraints constraints, double goalEndVelocity);
   }
 
   /**
@@ -552,11 +520,10 @@ public class AutoBuilder {
     Consumer<Pose2d> resetPose;
     BooleanSupplier shouldFlipPath;
     boolean isHolonomic;
-    Set<Mechanism> driveRequirements = Set.of();
 
     // Pathfinding builders
     boolean pathfindingConfigured = false;
-    TriFunction<Pose2d, PathConstraints, Double, Command> pathfindToPoseCommandBuilder;
+    PathfindToPoseBuilder pathfindToPoseCommandBuilder;
     BiFunction<PathPlannerPath, PathConstraints, Command> pathfindThenFollowPathCommandBuilder;
   }
 }

@@ -31,15 +31,6 @@ public class ScheduleCommandEvent extends Event {
     this(timestamp.in(Seconds), command);
   }
 
-  /**
-   * Get the command that this event will schedule
-   *
-   * @return The command
-   */
-  public CommandSpec getCommand() {
-    return command;
-  }
-
   @Override
   public void handleEvent(EventSchedulerBase eventScheduler) {
     eventScheduler.scheduleCommand(command);

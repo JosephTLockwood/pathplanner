@@ -1,7 +1,9 @@
 package com.pathplanner.lib.command3;
 
+import static com.pathplanner.lib.TestFixtures.straightPath;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.pathplanner.lib.TestFixtures;
 import com.pathplanner.lib.auto.CommandSpec;
 import com.pathplanner.lib.follower.ActivePathState;
 import com.pathplanner.lib.path.EventMarker;
@@ -9,13 +11,15 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.wpilib.command3.Command;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.math.kinematics.ChassisVelocities;
 
 class FollowPathCommandTest extends CommandsV3TestBase {
   @Test
   void followsPathUntilTrajectoryEnds() {
     PathPlannerPath path = straightPath("Straight");
-    double totalTime = path.getIdealTrajectory(ROBOT_CONFIG).orElseThrow().getTotalTimeSeconds();
+    double totalTime =
+        path.getIdealTrajectory(TestFixtures.ROBOT_CONFIG).orElseThrow().getTotalTimeSeconds();
     FollowPathCommand command = followPathCommand(path);
 
     scheduler.schedule(command);
@@ -50,7 +54,7 @@ class FollowPathCommandTest extends CommandsV3TestBase {
 
   @Test
   void markerCommandsAreForkedAndCanceledWhenPathEnds() {
-    var intake = new TestMechanism("Intake", scheduler);
+    var intake = new Mechanism() {};
     Command intakeCommand = runForever(intake, "Run Intake");
     PathPlannerPath path =
         straightPath("Markers", new EventMarker("Intake", 0.5, CommandSpec.of(intakeCommand)));
@@ -71,7 +75,7 @@ class FollowPathCommandTest extends CommandsV3TestBase {
 
   @Test
   void zonedMarkerCommandIsCanceledAtEndOfZone() {
-    var intake = new TestMechanism("Intake", scheduler);
+    var intake = new Mechanism() {};
     Command intakeCommand = runForever(intake, "Run Intake");
     PathPlannerPath path =
         straightPath("Zone", new EventMarker("Intake", 0.2, 0.6, CommandSpec.of(intakeCommand)));
@@ -115,7 +119,7 @@ class FollowPathCommandTest extends CommandsV3TestBase {
 
   @Test
   void eventTriggerCommandsAreNotCanceledWhenPathEnds() {
-    var shooter = new TestMechanism("Shooter", scheduler);
+    var shooter = new Mechanism() {};
     Command shoot = runForever(shooter, "Shoot");
     new EventTrigger(scheduler, "Shoot").onTrue(shoot);
 
@@ -130,7 +134,7 @@ class FollowPathCommandTest extends CommandsV3TestBase {
 
   @Test
   void zonedEventTriggerIsActiveDuringZone() {
-    var intake = new TestMechanism("Intake", scheduler);
+    var intake = new Mechanism() {};
     Command intakeCommand = runForever(intake, "Run Intake");
     new EventTrigger(scheduler, "Intake").whileTrue(intakeCommand);
 
@@ -145,7 +149,7 @@ class FollowPathCommandTest extends CommandsV3TestBase {
 
   @Test
   void zonedEventIsDeactivatedWhenPathIsCanceled() {
-    var intake = new TestMechanism("Intake", scheduler);
+    var intake = new Mechanism() {};
     Command intakeCommand = runForever(intake, "Run Intake");
     new EventTrigger(scheduler, "Intake").whileTrue(intakeCommand);
 

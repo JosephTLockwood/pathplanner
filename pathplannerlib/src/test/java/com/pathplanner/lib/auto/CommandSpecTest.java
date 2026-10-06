@@ -2,6 +2,7 @@ package com.pathplanner.lib.auto;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.pathplanner.lib.auto.CommandSpec.GroupType;
 import java.util.List;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -43,15 +44,19 @@ class CommandSpecTest {
     CommandSpec spec = CommandSpec.fromJson(json(text), false);
 
     assertEquals(
-        new CommandSpec.Sequential(
+        new CommandSpec.Group(
+            GroupType.SEQUENTIAL,
             List.of(
                 new CommandSpec.FollowPath("First", false),
                 new CommandSpec.Wait(1.5),
-                new CommandSpec.Deadline(
+                new CommandSpec.Group(
+                    GroupType.DEADLINE,
                     List.of(
                         new CommandSpec.FollowPath("Second", false),
                         new CommandSpec.Named("Intake"))),
-                new CommandSpec.Parallel(List.of(new CommandSpec.Race(List.of()))))),
+                new CommandSpec.Group(
+                    GroupType.PARALLEL,
+                    List.of(new CommandSpec.Group(GroupType.RACE, List.of()))))),
         spec);
 
     assertEquals(
@@ -101,6 +106,6 @@ class CommandSpecTest {
                 }
                 """));
 
-    assertEquals(new AutoFile(new CommandSpec.Named("Score"), true, false), auto);
+    assertEquals(new AutoFile(new CommandSpec.Named("Score"), true), auto);
   }
 }

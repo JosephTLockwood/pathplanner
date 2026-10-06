@@ -1,7 +1,9 @@
 package com.pathplanner.lib.command3;
 
+import static com.pathplanner.lib.TestFixtures.straightPath;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.pathplanner.lib.TestFixtures;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.follower.ActivePathState;
@@ -12,7 +14,6 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.pathfinding.Pathfinder;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.FlippingUtil;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,7 +72,6 @@ class AutoBuilderTest extends CommandsV3TestBase {
   private final StraightLinePathfinder pathfinder = new StraightLinePathfinder();
   private final AtomicBoolean flip = new AtomicBoolean(false);
   private final AtomicReference<Pose2d> resetPose = new AtomicReference<>();
-  private final List<String> activePaths = new ArrayList<>();
 
   @BeforeEach
   void configure() {
@@ -82,7 +82,7 @@ class AutoBuilderTest extends CommandsV3TestBase {
         ChassisVelocities::new,
         output,
         new PPHolonomicDriveController(new PIDConstants(5.0), new PIDConstants(5.0)),
-        ROBOT_CONFIG,
+        TestFixtures.ROBOT_CONFIG,
         flip::get,
         drive);
   }
@@ -90,15 +90,6 @@ class AutoBuilderTest extends CommandsV3TestBase {
   @AfterEach
   void resetPathfinder() {
     Pathfinding.setPathfinder(null);
-  }
-
-  @Override
-  protected void step() {
-    super.step();
-    String name = ActivePathState.getCurrentPathName();
-    if (activePaths.isEmpty() || !activePaths.get(activePaths.size() - 1).equals(name)) {
-      activePaths.add(name);
-    }
   }
 
   @Test
@@ -156,8 +147,8 @@ class AutoBuilderTest extends CommandsV3TestBase {
     assertEquals(new Translation2d(4.0, 2.0), pathfinder.goal);
     robotPose = new Pose2d(4.0, 2.0, Rotation2d.ZERO);
 
+    stepUntil(() -> "Goal".equals(ActivePathState.getCurrentPathName()), 2000);
     stepUntil(() -> !isRunning(command), 2000);
-    assertTrue(activePaths.contains("Goal"), "The goal path should be followed: " + activePaths);
     assertEquals("", ActivePathState.getCurrentPathName());
   }
 }

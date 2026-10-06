@@ -31,15 +31,6 @@ public class CancelCommandEvent extends Event {
     this(timestamp.in(Seconds), command);
   }
 
-  /**
-   * Get the command that this event will cancel
-   *
-   * @return The command
-   */
-  public CommandSpec getCommand() {
-    return command;
-  }
-
   @Override
   public void handleEvent(EventSchedulerBase eventScheduler) {
     eventScheduler.cancelCommand(command);

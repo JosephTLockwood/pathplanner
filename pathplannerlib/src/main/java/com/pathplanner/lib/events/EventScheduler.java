@@ -25,8 +25,6 @@ public class EventScheduler extends EventSchedulerBase {
 
   private static final EventLoop eventLoop = new EventLoop();
 
-  private static final Map<String, Command> oneShotResetCommands = new HashMap<>();
-
   private final Map<Command, Boolean> eventCommands;
 
   private final Map<CommandSpec, Command> builtCommands;
@@ -64,21 +62,17 @@ public class EventScheduler extends EventSchedulerBase {
     while (!upcomingEvents.isEmpty() && time >= upcomingEvents.peek().getTimestampSeconds()) {
       upcomingEvents.poll().handleEvent(this);
     }
-
     // Run currently running commands
     for (var entry : eventCommands.entrySet()) {
       if (!entry.getValue()) {
         continue;
       }
-
       entry.getKey().execute();
-
       if (entry.getKey().isFinished()) {
         entry.getKey().end(false);
         eventCommands.put(entry.getKey(), false);
       }
     }
-
     eventLoop.poll();
   }
 
@@ -92,15 +86,12 @@ public class EventScheduler extends EventSchedulerBase {
       if (!entry.getValue()) {
         continue;
       }
-
       entry.getKey().end(true);
     }
-
     // Cancel any unhandled events
     for (Event e : upcomingEvents) {
       e.cancelEvent(this);
     }
-
     eventCommands.clear();
     upcomingEvents.clear();
   }
@@ -161,14 +152,11 @@ public class EventScheduler extends EventSchedulerBase {
 
     // We schedule this command with the main command scheduler so that it is guaranteed to be run
     // in its entirety, since the EventScheduler could cancel this command before it finishes
-    Command resetCommand =
-        oneShotResetCommands.computeIfAbsent(
-            eventName,
-            name ->
-                Commands.waitSeconds(0.0)
-                    .andThen(Commands.runOnce(() -> EventConditions.setEventActive(name, false)))
-                    .ignoringDisable(true));
-    CommandScheduler.getInstance().schedule(resetCommand);
+    CommandScheduler.getInstance()
+        .schedule(
+            Commands.waitSeconds(0.0)
+                .andThen(Commands.runOnce(() -> EventConditions.setEventActive(eventName, false)))
+                .ignoringDisable(true));
   }
 
   private Command getEventCommand(CommandSpec spec) {
@@ -197,12 +185,10 @@ public class EventScheduler extends EventSchedulerBase {
       if (!entry.getValue()) {
         continue;
       }
-
       if (!Collections.disjoint(entry.getKey().getRequirements(), command.getRequirements())) {
         cancelCommand(entry.getKey());
       }
     }
-
     command.initialize();
     eventCommands.put(command, true);
   }
@@ -217,7 +203,6 @@ public class EventScheduler extends EventSchedulerBase {
       // Command is not currently running
       return;
     }
-
     command.end(true);
     eventCommands.put(command, false);
   }

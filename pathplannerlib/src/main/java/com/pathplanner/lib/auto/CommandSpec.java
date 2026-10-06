@@ -4,6 +4,7 @@ import com.pathplanner.lib.path.PathPlannerPath;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
@@ -66,70 +67,26 @@ public sealed interface CommandSpec {
     }
   }
 
-  /**
-   * A group of commands that run one after another
-   *
-   * @param commands The commands in the group
-   */
-  record Sequential(List<CommandSpec> commands) implements CommandSpec {
-    /**
-     * Create a sequential command group spec
-     *
-     * @param commands The commands in the group
-     */
-    public Sequential {
-      commands = List.copyOf(commands);
-    }
+  /** How the commands in a group are run */
+  enum GroupType {
+    /** Run the commands one after another */
+    SEQUENTIAL,
+    /** Run the commands at the same time, finishing when all of them have finished */
+    PARALLEL,
+    /** Run the commands at the same time, finishing when any of them has finished */
+    RACE,
+    /** Run the commands at the same time, finishing when the first command has finished */
+    DEADLINE
   }
 
   /**
-   * A group of commands that run at the same time, finishing when all commands have finished
+   * A group of commands
    *
-   * @param commands The commands in the group
+   * @param type How the commands in the group are run
+   * @param commands The commands in the group. For a deadline group, the first command is the
+   *     deadline.
    */
-  record Parallel(List<CommandSpec> commands) implements CommandSpec {
-    /**
-     * Create a parallel command group spec
-     *
-     * @param commands The commands in the group
-     */
-    public Parallel {
-      commands = List.copyOf(commands);
-    }
-  }
-
-  /**
-   * A group of commands that run at the same time, finishing when any command has finished
-   *
-   * @param commands The commands in the group
-   */
-  record Race(List<CommandSpec> commands) implements CommandSpec {
-    /**
-     * Create a race command group spec
-     *
-     * @param commands The commands in the group
-     */
-    public Race {
-      commands = List.copyOf(commands);
-    }
-  }
-
-  /**
-   * A group of commands that run at the same time, finishing when the first command (the deadline)
-   * has finished
-   *
-   * @param commands The commands in the group. The first command is the deadline.
-   */
-  record Deadline(List<CommandSpec> commands) implements CommandSpec {
-    /**
-     * Create a deadline command group spec
-     *
-     * @param commands The commands in the group. The first command is the deadline.
-     */
-    public Deadline {
-      commands = List.copyOf(commands);
-    }
-  }
+  record Group(GroupType type, List<CommandSpec> commands) implements CommandSpec {}
 
   /**
    * An already constructed command object. The command must be a command from the command framework
@@ -153,16 +110,6 @@ public sealed interface CommandSpec {
   }
 
   /**
-   * Create a spec that runs a command registered with NamedCommands
-   *
-   * @param name The name of the command
-   * @return Command spec for the named command
-   */
-  static CommandSpec named(String name) {
-    return new Named(name);
-  }
-
-  /**
    * Create a command spec from json
    *
    * @param commandJson {@link org.json.simple.JSONObject} representing a command
@@ -177,10 +124,10 @@ public sealed interface CommandSpec {
       case "wait" -> new Wait(waitTimeFromJson(data));
       case "named" -> new Named((String) data.get("name"));
       case "path" -> new FollowPath((String) data.get("pathName"), choreoPaths);
-      case "sequential" -> new Sequential(childrenFromJson(data, choreoPaths));
-      case "parallel" -> new Parallel(childrenFromJson(data, choreoPaths));
-      case "race" -> new Race(childrenFromJson(data, choreoPaths));
-      case "deadline" -> new Deadline(childrenFromJson(data, choreoPaths));
+      case "sequential", "parallel", "race", "deadline" ->
+          new Group(
+              GroupType.valueOf(type.toUpperCase(Locale.ROOT)),
+              childrenFromJson(data, choreoPaths));
       default -> new None();
     };
   }
@@ -194,10 +141,7 @@ public sealed interface CommandSpec {
     List<FollowPath> paths = new ArrayList<>();
     switch (this) {
       case FollowPath path -> paths.add(path);
-      case Sequential group -> group.commands().forEach(c -> paths.addAll(c.getPathCommands()));
-      case Parallel group -> group.commands().forEach(c -> paths.addAll(c.getPathCommands()));
-      case Race group -> group.commands().forEach(c -> paths.addAll(c.getPathCommands()));
-      case Deadline group -> group.commands().forEach(c -> paths.addAll(c.getPathCommands()));
+      case Group group -> group.commands().forEach(c -> paths.addAll(c.getPathCommands()));
       default -> {}
     }
     return paths;

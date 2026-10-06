@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.wpilib.command3.Command;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.math.geometry.Pose2d;
 
 class PathPlannerAutoTest extends CommandsV3TestBase {
@@ -22,7 +23,7 @@ class PathPlannerAutoTest extends CommandsV3TestBase {
 
   @Test
   void runsAutoCommandAsChild() {
-    var intake = new TestMechanism("Intake", scheduler);
+    var intake = new Mechanism() {};
     Command body = runForever(intake, "Body");
     var auto = new PathPlannerAuto(scheduler, body, Pose2d.ZERO);
 

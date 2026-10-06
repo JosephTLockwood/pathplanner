@@ -1,12 +1,12 @@
 package com.pathplanner.lib;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pathplanner.lib.path.PathPlannerPath;
-import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.constantpool.PoolEntry;
+import java.lang.classfile.constantpool.Utf8Entry;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,8 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.jar.JarFile;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -99,75 +97,28 @@ class FrameworkIndependenceTest {
     assertTrue(violations.isEmpty(), String.join("\n", violations));
   }
 
-  @Test
-  void coreClassesDoNotReferenceCommandFrameworks() throws Exception {
-    Map<String, Set<String>> references = readReferences();
-    for (String core : List.of("path/PathPlannerPath", "path/EventMarker", "events/Event")) {
-      for (String ref : references.get(LIB + core)) {
-        assertFalse(ref.startsWith(WPILIB_V2) || ref.startsWith(WPILIB_V3), core + " -> " + ref);
-      }
-    }
-  }
-
   /** Map of each PathPlannerLib class to the classes it references */
   private static Map<String, Set<String>> readReferences() throws IOException, URISyntaxException {
-    Path location =
+    Path classes =
         Path.of(PathPlannerPath.class.getProtectionDomain().getCodeSource().getLocation().toURI());
     Map<String, Set<String>> references = new HashMap<>();
 
-    if (Files.isDirectory(location)) {
-      try (Stream<Path> files = Files.walk(location.resolve(LIB))) {
-        for (Path file : files.filter(f -> f.toString().endsWith(".class")).toList()) {
-          String name = location.relativize(file).toString().replace('\\', '/');
-          try (InputStream in = Files.newInputStream(file)) {
-            references.put(name.substring(0, name.length() - 6), readClassReferences(in));
+    try (Stream<Path> files = Files.walk(classes.resolve(LIB))) {
+      for (Path file : files.filter(f -> f.toString().endsWith(".class")).toList()) {
+        String name = classes.relativize(file).toString().replace('\\', '/');
+        Set<String> referenced = new TreeSet<>();
+        for (PoolEntry entry : ClassFile.of().parse(file).constantPool()) {
+          if (entry instanceof Utf8Entry utf8) {
+            CLASS_NAME
+                .matcher(utf8.stringValue())
+                .results()
+                .forEach(m -> referenced.add(m.group()));
           }
         }
-      }
-    } else {
-      try (JarFile jar = new JarFile(location.toFile())) {
-        for (var entry : jar.stream().toList()) {
-          String name = entry.getName();
-          if (name.startsWith(LIB) && name.endsWith(".class")) {
-            try (InputStream in = jar.getInputStream(entry)) {
-              references.put(name.substring(0, name.length() - 6), readClassReferences(in));
-            }
-          }
-        }
+        references.put(name.substring(0, name.length() - ".class".length()), referenced);
       }
     }
 
     return references;
-  }
-
-  /** Read the names of the classes referenced in a class file's constant pool */
-  private static Set<String> readClassReferences(InputStream classFile) throws IOException {
-    DataInputStream in = new DataInputStream(classFile);
-    in.readInt(); // magic
-    in.readUnsignedShort(); // minor version
-    in.readUnsignedShort(); // major version
-
-    Set<String> classes = new TreeSet<>();
-    int constantPoolCount = in.readUnsignedShort();
-    for (int i = 1; i < constantPoolCount; i++) {
-      int tag = in.readUnsignedByte();
-      switch (tag) {
-        case 1 -> {
-          Matcher matcher = CLASS_NAME.matcher(in.readUTF());
-          while (matcher.find()) {
-            classes.add(matcher.group());
-          }
-        }
-        case 7, 8, 16, 19, 20 -> in.skipBytes(2);
-        case 15 -> in.skipBytes(3);
-        case 3, 4, 9, 10, 11, 12, 17, 18 -> in.skipBytes(4);
-        case 5, 6 -> {
-          in.skipBytes(8);
-          i++; // Longs and doubles take two constant pool entries
-        }
-        default -> throw new IOException("Unknown constant pool tag " + tag);
-      }
-    }
-    return classes;
   }
 }

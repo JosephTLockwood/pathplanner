@@ -1,42 +1,29 @@
 package com.pathplanner.lib.commands;
 
+import static com.pathplanner.lib.TestFixtures.straightPath;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.pathplanner.lib.TestFixtures;
 import com.pathplanner.lib.auto.CommandSpec;
+import com.pathplanner.lib.auto.CommandSpec.GroupType;
 import com.pathplanner.lib.auto.CommandUtil;
 import com.pathplanner.lib.auto.NamedCommands;
-import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.follower.ActivePathState;
 import com.pathplanner.lib.path.*;
 import com.pathplanner.lib.util.PPLibTesting;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.wpilib.command2.*;
 import org.wpilib.math.geometry.Pose2d;
-import org.wpilib.math.geometry.Rotation2d;
-import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
-import org.wpilib.math.system.DCMotor;
 import org.wpilib.system.RobotController;
 
 /** Tests that the Commands v2 API still works on top of the framework-independent core */
 class FollowPathCommandTest {
-  private static final RobotConfig ROBOT_CONFIG =
-      new RobotConfig(
-          60.0,
-          6.0,
-          new ModuleConfig(0.048, 5.0, 1.2, DCMotor.getKrakenX60(1).withReduction(6.14), 60.0, 1),
-          new Translation2d(0.3, 0.3),
-          new Translation2d(0.3, -0.3),
-          new Translation2d(-0.3, 0.3),
-          new Translation2d(-0.3, -0.3));
-
   private long timeNanos;
   private final Subsystem drive = new Subsystem() {};
   private final Subsystem intake = new Subsystem() {};
@@ -48,11 +35,6 @@ class FollowPathCommandTest {
     PPLibTesting.resetForTesting();
   }
 
-  @AfterEach
-  void tearDown() {
-    PPLibTesting.resetForTesting();
-  }
-
   private FollowPathCommand followPathCommand(PathPlannerPath path) {
     return new FollowPathCommand(
         path,
@@ -60,26 +42,9 @@ class FollowPathCommandTest {
         ChassisVelocities::new,
         (_, _) -> {},
         new PPHolonomicDriveController(new PIDConstants(5.0), new PIDConstants(5.0)),
-        ROBOT_CONFIG,
+        TestFixtures.ROBOT_CONFIG,
         () -> false,
         drive);
-  }
-
-  private static PathPlannerPath straightPath(EventMarker... markers) {
-    PathPlannerPath path =
-        new PathPlannerPath(
-            PathPlannerPath.waypointsFromPoses(
-                new Pose2d(0.0, 0.0, Rotation2d.ZERO), new Pose2d(3.0, 0.0, Rotation2d.ZERO)),
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(markers),
-            new PathConstraints(3.0, 3.0, 6.0, 6.0),
-            new IdealStartingState(0.0, Rotation2d.ZERO),
-            new GoalEndState(0.0, Rotation2d.ZERO),
-            false);
-    path.name = "Straight";
-    return path;
   }
 
   @Test
@@ -100,7 +65,8 @@ class FollowPathCommandTest {
             intake);
     FollowPathCommand command =
         followPathCommand(
-            straightPath(new EventMarker("Intake", 0.2, 0.6, CommandSpec.of(markerCommand))));
+            straightPath(
+                "Straight", new EventMarker("Intake", 0.2, 0.6, CommandSpec.of(markerCommand))));
 
     assertTrue(command.getRequirements().containsAll(List.of(drive, intake)));
 
@@ -131,7 +97,8 @@ class FollowPathCommandTest {
         "Intake", Commands.runOnce(registeredRuns::incrementAndGet, intake));
     FollowPathCommand command =
         followPathCommand(
-            straightPath(new EventMarker("Intake", 0.5, new CommandSpec.Named("Intake"))));
+            straightPath(
+                "Straight", new EventMarker("Intake", 0.5, new CommandSpec.Named("Intake"))));
 
     // The marker should run the command that was registered when the path command was created
     NamedCommands.registerCommand(
@@ -154,7 +121,8 @@ class FollowPathCommandTest {
         IllegalArgumentException.class,
         () ->
             followPathCommand(
-                straightPath(new EventMarker("Drive", 0.5, CommandSpec.of(driveCommand)))));
+                straightPath(
+                    "Straight", new EventMarker("Drive", 0.5, CommandSpec.of(driveCommand)))));
   }
 
   @Test
@@ -162,17 +130,21 @@ class FollowPathCommandTest {
     assertInstanceOf(
         SequentialCommandGroup.class,
         CommandUtil.buildCommand(
-            new CommandSpec.Sequential(List.of(new CommandSpec.Wait(1.0))), false));
+            new CommandSpec.Group(GroupType.SEQUENTIAL, List.of(new CommandSpec.Wait(1.0))),
+            false));
     assertInstanceOf(
         ParallelCommandGroup.class,
-        CommandUtil.buildCommand(new CommandSpec.Parallel(List.of(new CommandSpec.None())), false));
+        CommandUtil.buildCommand(
+            new CommandSpec.Group(GroupType.PARALLEL, List.of(new CommandSpec.None())), false));
     assertInstanceOf(
         ParallelRaceGroup.class,
-        CommandUtil.buildCommand(new CommandSpec.Race(List.of(new CommandSpec.None())), false));
+        CommandUtil.buildCommand(
+            new CommandSpec.Group(GroupType.RACE, List.of(new CommandSpec.None())), false));
     assertInstanceOf(
         ParallelDeadlineGroup.class,
         CommandUtil.buildCommand(
-            new CommandSpec.Deadline(List.of(new CommandSpec.Wait(1.0), new CommandSpec.None())),
+            new CommandSpec.Group(
+                GroupType.DEADLINE, List.of(new CommandSpec.Wait(1.0), new CommandSpec.None())),
             false));
     assertInstanceOf(WaitCommand.class, CommandUtil.buildCommand(new CommandSpec.Wait(1.0), false));
     assertThrows(

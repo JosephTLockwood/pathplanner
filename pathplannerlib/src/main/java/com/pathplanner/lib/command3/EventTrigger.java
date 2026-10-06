@@ -4,7 +4,6 @@ import com.pathplanner.lib.events.EventConditions;
 import java.util.function.BooleanSupplier;
 import org.wpilib.command3.Scheduler;
 import org.wpilib.command3.Trigger;
-import org.wpilib.event.EventLoop;
 
 /**
  * A Commands v3 trigger that will be controlled by the placement of event markers/zones in a
@@ -36,17 +35,6 @@ public class EventTrigger extends Trigger {
    */
   public EventTrigger(Scheduler scheduler, String name) {
     super(scheduler, pollCondition(name));
-  }
-
-  /**
-   * Create a new EventTrigger that is polled by the given event loop
-   *
-   * @param scheduler The scheduler that runs this trigger's bound commands
-   * @param eventLoop The event loop that polls this trigger
-   * @param name The name of the event. This will be the name of the event marker in the GUI
-   */
-  public EventTrigger(Scheduler scheduler, EventLoop eventLoop, String name) {
-    super(scheduler, eventLoop, pollCondition(name));
   }
 
   /**

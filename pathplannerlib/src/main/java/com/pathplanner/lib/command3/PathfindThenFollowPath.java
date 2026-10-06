@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.wpilib.command3.Command;
 import org.wpilib.command3.Coroutine;
@@ -22,17 +23,8 @@ import org.wpilib.math.kinematics.ChassisVelocities;
  * to the start of the path, then follows the path.
  */
 public class PathfindThenFollowPath implements Command {
-  private final PathPlannerPath goalPath;
-  private final PathConstraints pathfindingConstraints;
-  private final Supplier<Pose2d> poseSupplier;
-  private final Supplier<ChassisVelocities> speedsSupplier;
-  private final BiConsumer<ChassisVelocities, DriveFeedforwards> output;
-  private final PathFollowingController controller;
-  private final RobotConfig robotConfig;
-  private final BooleanSupplier shouldFlipPath;
-  private final Mechanism[] driveRequirements;
-
   private final Command pathfindToPath;
+  private final Supplier<Optional<Command>> followJoinPath;
   private final Command followGoalPath;
   private final Set<Mechanism> requirements;
   private final String name;
@@ -65,15 +57,17 @@ public class PathfindThenFollowPath implements Command {
       RobotConfig robotConfig,
       BooleanSupplier shouldFlipPath,
       Mechanism... requirements) {
-    this.goalPath = goalPath;
-    this.pathfindingConstraints = pathfindingConstraints;
-    this.poseSupplier = poseSupplier;
-    this.speedsSupplier = currentRobotRelativeSpeeds;
-    this.output = output;
-    this.controller = controller;
-    this.robotConfig = robotConfig;
-    this.shouldFlipPath = shouldFlipPath;
-    this.driveRequirements = requirements;
+    Function<PathPlannerPath, Command> followPath =
+        path ->
+            new FollowPathCommand(
+                path,
+                poseSupplier,
+                currentRobotRelativeSpeeds,
+                output,
+                controller,
+                robotConfig,
+                shouldFlipPath,
+                requirements);
 
     this.pathfindToPath =
         new PathfindingCommand(
@@ -86,7 +80,18 @@ public class PathfindThenFollowPath implements Command {
             robotConfig,
             shouldFlipPath,
             requirements);
-    this.followGoalPath = followPathCommand(goalPath);
+    // The path joining the end of the pathfinding path to the start of the goal path can only be
+    // generated once the robot's state at the end of pathfinding is known
+    this.followJoinPath =
+        () ->
+            PathfindingFollower.createJoinPath(
+                    goalPath,
+                    pathfindingConstraints,
+                    poseSupplier.get(),
+                    currentRobotRelativeSpeeds.get(),
+                    shouldFlipPath.getAsBoolean())
+                .map(followPath);
+    this.followGoalPath = followPath.apply(goalPath);
     this.requirements = Set.of(requirements);
     this.name = FollowPathCommand.nameWithPath("Pathfind Then Follow Path", goalPath);
   }
@@ -94,20 +99,7 @@ public class PathfindThenFollowPath implements Command {
   @Override
   public void run(Coroutine coroutine) {
     coroutine.await(pathfindToPath);
-
-    // Generate an on-the-fly path to join the end of the pathfinding path to the start of the goal
-    // path, now that the robot's state at the end of pathfinding is known
-    Optional<PathPlannerPath> joinPath =
-        PathfindingFollower.createJoinPath(
-            goalPath,
-            pathfindingConstraints,
-            poseSupplier.get(),
-            speedsSupplier.get(),
-            shouldFlipPath.getAsBoolean());
-    if (joinPath.isPresent()) {
-      coroutine.await(followPathCommand(joinPath.get()));
-    }
-
+    followJoinPath.get().ifPresent(coroutine::await);
     coroutine.await(followGoalPath);
   }
 
@@ -124,17 +116,5 @@ public class PathfindThenFollowPath implements Command {
   @Override
   public String toString() {
     return name();
-  }
-
-  private Command followPathCommand(PathPlannerPath path) {
-    return new FollowPathCommand(
-        path,
-        poseSupplier,
-        speedsSupplier,
-        output,
-        controller,
-        robotConfig,
-        shouldFlipPath,
-        driveRequirements);
   }
 }
