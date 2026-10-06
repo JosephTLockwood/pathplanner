@@ -12,7 +12,7 @@ import org.wpilib.math.geometry.Pose2d;
 
 class PathPlannerAutoTest extends CommandsV3TestBase {
   private static Command counter(AtomicInteger count) {
-    return Command.noRequirements(coroutine -> count.incrementAndGet()).named("Count");
+    return Command.noRequirements(_ -> count.incrementAndGet()).named("Count");
   }
 
   private PathPlannerAuto autoThatWaits(double seconds) {

@@ -89,10 +89,10 @@ public abstract class Event {
   /**
    * Copy this event with a different timestamp
    *
-   * @param timestamp The new timestamp
+   * @param time The new timestamp
    * @return Copied event with new time
    */
-  public Event copyWithTimestamp(Time timestamp) {
-    return copyWithTimestamp(timestamp.in(Seconds));
+  public Event copyWithTimestamp(Time time) {
+    return copyWithTimestamp(time.in(Seconds));
   }
 }

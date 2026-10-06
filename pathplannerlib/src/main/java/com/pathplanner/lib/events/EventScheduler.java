@@ -146,6 +146,7 @@ public class EventScheduler extends EventSchedulerBase {
   }
 
   @Override
+  @SuppressWarnings("resource") // The command scheduler is a singleton that must not be closed
   protected void handleOneShotTrigger(String eventName) {
     EventConditions.setEventActive(eventName, true);
 

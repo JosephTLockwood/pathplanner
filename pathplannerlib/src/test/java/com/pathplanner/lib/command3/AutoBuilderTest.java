@@ -80,7 +80,7 @@ class AutoBuilderTest extends CommandsV3TestBase {
         () -> robotPose,
         resetPose::set,
         ChassisVelocities::new,
-        this::output,
+        output,
         new PPHolonomicDriveController(new PIDConstants(5.0), new PIDConstants(5.0)),
         ROBOT_CONFIG,
         flip::get,

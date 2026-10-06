@@ -213,13 +213,12 @@ public class RobotConfig {
   public SwerveModuleVelocity[] toSwerveModuleStates(ChassisVelocities speeds) {
     if (isHolonomic) {
       return swerveKinematics.toSwerveModuleVelocities(speeds);
-    } else {
-      var wheelSpeeds = diffKinematics.toWheelVelocities(speeds);
-      return new SwerveModuleVelocity[] {
-        new SwerveModuleVelocity(wheelSpeeds.left, new Rotation2d()),
-        new SwerveModuleVelocity(wheelSpeeds.right, new Rotation2d())
-      };
     }
+    var wheelSpeeds = diffKinematics.toWheelVelocities(speeds);
+    return new SwerveModuleVelocity[] {
+      new SwerveModuleVelocity(wheelSpeeds.left, new Rotation2d()),
+      new SwerveModuleVelocity(wheelSpeeds.right, new Rotation2d())
+    };
   }
 
   /**
@@ -232,11 +231,9 @@ public class RobotConfig {
   public ChassisVelocities toChassisSpeeds(SwerveModuleVelocity[] states) {
     if (isHolonomic) {
       return swerveKinematics.toChassisVelocities(states);
-    } else {
-      var wheelSpeeds =
-          new DifferentialDriveWheelVelocities(states[0].velocity, states[1].velocity);
-      return diffKinematics.toChassisVelocities(wheelSpeeds);
     }
+    var wheelSpeeds = new DifferentialDriveWheelVelocities(states[0].velocity, states[1].velocity);
+    return diffKinematics.toChassisVelocities(wheelSpeeds);
   }
 
   /**
@@ -272,17 +269,13 @@ public class RobotConfig {
    * @throws ParseException if a JSON parsing error occurs
    */
   public static RobotConfig fromGUISettings() throws IOException, ParseException {
-    BufferedReader br =
+    JSONObject json;
+    try (BufferedReader br =
         new BufferedReader(
-            new FileReader(new File(Filesystem.getDeployDirectory(), "pathplanner/settings.json")));
-    StringBuilder fileContentBuilder = new StringBuilder();
-    String line;
-    while ((line = br.readLine()) != null) {
-      fileContentBuilder.append(line);
+            new FileReader(
+                new File(Filesystem.getDeployDirectory(), "pathplanner/settings.json")))) {
+      json = (JSONObject) new JSONParser().parse(br);
     }
-    br.close();
-    String fileContent = fileContentBuilder.toString();
-    JSONObject json = (JSONObject) new JSONParser().parse(fileContent);
     boolean isHolonomic = (boolean) json.get("holonomicMode");
     double massKG = ((Number) json.get("robotMass")).doubleValue();
     double MOI = ((Number) json.get("robotMOI")).doubleValue();
@@ -326,10 +319,9 @@ public class RobotConfig {
                 ((Number) json.get("brModuleY")).doubleValue())
           };
       return new RobotConfig(massKG, MOI, moduleConfig, moduleOffsets);
-    } else {
-      double trackwidth = ((Number) json.get("robotTrackwidth")).doubleValue();
-      return new RobotConfig(massKG, MOI, moduleConfig, trackwidth);
     }
+    double trackwidth = ((Number) json.get("robotTrackwidth")).doubleValue();
+    return new RobotConfig(massKG, MOI, moduleConfig, trackwidth);
   }
 
   /**
@@ -343,7 +335,7 @@ public class RobotConfig {
     RobotConfig guiConfig;
     try {
       guiConfig = RobotConfig.fromGUISettings();
-    } catch (IOException | ParseException e) {
+    } catch (IOException | ParseException _) {
       ValidationAlerts.BAD_GUI_CONFIG.set(true);
       return false;
     }

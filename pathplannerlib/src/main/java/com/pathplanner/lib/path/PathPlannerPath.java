@@ -348,7 +348,7 @@ public class PathPlannerPath {
 
       try {
         version = ((Number) json.get("version")).intValue();
-      } catch (Exception ignored) {
+      } catch (Exception _) {
         // Assume version 0
       }
 
@@ -561,7 +561,8 @@ public class PathPlannerPath {
     if (dotIdx != -1) {
       try {
         splitIdx = Integer.parseInt(trajectoryName.substring(dotIdx + 1));
-      } catch (NumberFormatException ignored) {
+      } catch (NumberFormatException _) {
+        // Not a split index
       }
     }
     if (splitIdx != -1) {
@@ -1093,9 +1094,8 @@ public class PathPlannerPath {
       ChassisVelocities startingSpeeds, Rotation2d startingRotation, RobotConfig config) {
     if (isChoreoPath) {
       return idealTrajectory.orElseThrow();
-    } else {
-      return new PathPlannerTrajectory(this, startingSpeeds, startingRotation, config);
     }
+    return new PathPlannerTrajectory(this, startingSpeeds, startingRotation, config);
   }
 
   /**

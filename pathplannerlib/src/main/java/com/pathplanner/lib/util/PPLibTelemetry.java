@@ -20,23 +20,19 @@ public class PPLibTelemetry {
 
   private static boolean compMode = false;
 
+  private static final NetworkTableInstance nt = NetworkTableInstance.getDefault();
+
   private static final DoubleArrayPublisher velPub =
-      NetworkTableInstance.getDefault().getDoubleArrayTopic("/PathPlanner/vel").publish();
+      nt.getDoubleArrayTopic("/PathPlanner/vel").publish();
 
   private static final StructPublisher<Pose2d> posePub =
-      NetworkTableInstance.getDefault()
-          .getStructTopic("/PathPlanner/currentPose", Pose2d.struct)
-          .publish();
+      nt.getStructTopic("/PathPlanner/currentPose", Pose2d.struct).publish();
 
   private static final StructArrayPublisher<Pose2d> pathPub =
-      NetworkTableInstance.getDefault()
-          .getStructArrayTopic("/PathPlanner/activePath", Pose2d.struct)
-          .publish();
+      nt.getStructArrayTopic("/PathPlanner/activePath", Pose2d.struct).publish();
 
   private static final StructPublisher<Pose2d> targetPosePub =
-      NetworkTableInstance.getDefault()
-          .getStructTopic("/PathPlanner/targetPose", Pose2d.struct)
-          .publish();
+      nt.getStructTopic("/PathPlanner/targetPose", Pose2d.struct).publish();
 
   private static final Map<String, List<PathPlannerPath>> hotReloadPaths = new HashMap<>();
 
@@ -136,16 +132,14 @@ public class PPLibTelemetry {
     if (hotReloadPathListener == null) {
       hotReloadPathListener =
           NetworkTableListener.createListener(
-              NetworkTableInstance.getDefault()
-                  .getStringTopic("/PathPlanner/HotReload/hotReloadPath"),
+              nt.getStringTopic("/PathPlanner/HotReload/hotReloadPath"),
               EnumSet.of(NetworkTableEvent.Kind.VALUE_REMOTE),
               PPLibTelemetry::handlePathHotReloadEvent);
     }
     if (hotReloadAutoListener == null) {
       hotReloadAutoListener =
           NetworkTableListener.createListener(
-              NetworkTableInstance.getDefault()
-                  .getStringTopic("/PathPlanner/HotReload/hotReloadAuto"),
+              nt.getStringTopic("/PathPlanner/HotReload/hotReloadAuto"),
               EnumSet.of(NetworkTableEvent.Kind.VALUE_REMOTE),
               PPLibTelemetry::handleAutoHotReloadEvent);
     }
@@ -173,12 +167,12 @@ public class PPLibTelemetry {
           try (FileWriter writer = new FileWriter(pathFile)) {
             writer.write(pathJson.toJSONString());
             writer.flush();
-          } catch (IOException e) {
+          } catch (IOException _) {
             DriverStationErrors.reportWarning(
                 "Failed to save updated path file contents, please re-deploy code", false);
           }
         }
-      } catch (Exception e) {
+      } catch (Exception _) {
         // Ignore
       }
     }
@@ -206,12 +200,12 @@ public class PPLibTelemetry {
           try (FileWriter writer = new FileWriter(pathFile)) {
             writer.write(autoJson.toJSONString());
             writer.flush();
-          } catch (IOException e) {
+          } catch (IOException _) {
             DriverStationErrors.reportWarning(
                 "Failed to save updated auto file contents, please re-deploy code", false);
           }
         }
-      } catch (Exception e) {
+      } catch (Exception _) {
         // Ignore
       }
     }

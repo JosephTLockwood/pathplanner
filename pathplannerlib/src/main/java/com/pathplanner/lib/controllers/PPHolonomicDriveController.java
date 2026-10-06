@@ -8,7 +8,6 @@ import java.util.function.Supplier;
 import org.wpilib.math.controller.PIDController;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
-import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
 
 /** Path following controller for holonomic drive trains */
@@ -19,8 +18,6 @@ public class PPHolonomicDriveController implements PathFollowingController {
   private final PIDController yController;
 
   private final PIDController rotationController;
-
-  private Translation2d translationError = new Translation2d();
 
   private boolean isEnabled = true;
 
@@ -103,8 +100,6 @@ public class PPHolonomicDriveController implements PathFollowingController {
     double xFF = targetState.fieldSpeeds.vx;
     double yFF = targetState.fieldSpeeds.vy;
 
-    this.translationError = currentPose.getTranslation().minus(targetState.pose.getTranslation());
-
     if (!this.isEnabled) {
       return new ChassisVelocities(xFF, yFF, 0).toRobotRelative(currentPose.getRotation());
     }
@@ -164,11 +159,11 @@ public class PPHolonomicDriveController implements PathFollowingController {
   /**
    * Begin overriding the X axis feedback.
    *
-   * @param xFeedbackOverride Double supplier that returns the desired FIELD-RELATIVE X feedback in
+   * @param override Double supplier that returns the desired FIELD-RELATIVE X feedback in
    *     meters/sec
    */
-  public static void overrideXFeedback(DoubleSupplier xFeedbackOverride) {
-    PPHolonomicDriveController.xFeedbackOverride = xFeedbackOverride;
+  public static void overrideXFeedback(DoubleSupplier override) {
+    xFeedbackOverride = override;
   }
 
   /**
@@ -182,11 +177,11 @@ public class PPHolonomicDriveController implements PathFollowingController {
   /**
    * Begin overriding the Y axis feedback.
    *
-   * @param yFeedbackOverride Double supplier that returns the desired FIELD-RELATIVE Y feedback in
+   * @param override Double supplier that returns the desired FIELD-RELATIVE Y feedback in
    *     meters/sec
    */
-  public static void overrideYFeedback(DoubleSupplier yFeedbackOverride) {
-    PPHolonomicDriveController.yFeedbackOverride = yFeedbackOverride;
+  public static void overrideYFeedback(DoubleSupplier override) {
+    yFeedbackOverride = override;
   }
 
   /**
@@ -200,15 +195,14 @@ public class PPHolonomicDriveController implements PathFollowingController {
   /**
    * Begin overriding the X and Y axis feedback.
    *
-   * @param xFeedbackOverride Double supplier that returns the desired FIELD-RELATIVE X feedback in
+   * @param xOverride Double supplier that returns the desired FIELD-RELATIVE X feedback in
    *     meters/sec
-   * @param yFeedbackOverride Double supplier that returns the desired FIELD-RELATIVE Y feedback in
+   * @param yOverride Double supplier that returns the desired FIELD-RELATIVE Y feedback in
    *     meters/sec
    */
-  public static void overrideXYFeedback(
-      DoubleSupplier xFeedbackOverride, DoubleSupplier yFeedbackOverride) {
-    overrideXFeedback(xFeedbackOverride);
-    overrideYFeedback(yFeedbackOverride);
+  public static void overrideXYFeedback(DoubleSupplier xOverride, DoubleSupplier yOverride) {
+    overrideXFeedback(xOverride);
+    overrideYFeedback(yOverride);
   }
 
   /**

@@ -67,14 +67,13 @@ public class NamedCommands {
   public static Command getCommand(String name) {
     if (hasCommand(name)) {
       return CommandUtil.wrappedEventCommand(namedCommands.get(name));
-    } else {
-      DriverStationErrors.reportWarning(
-          "PathPlanner attempted to create a command '"
-              + name
-              + "' that has not been registered with NamedCommands.registerCommand",
-          false);
-      return Commands.none();
     }
+    DriverStationErrors.reportWarning(
+        "PathPlanner attempted to create a command '"
+            + name
+            + "' that has not been registered with NamedCommands.registerCommand",
+        false);
+    return Commands.none();
   }
 
   /** Removes all registered named commands. */

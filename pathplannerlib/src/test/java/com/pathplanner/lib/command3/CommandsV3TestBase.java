@@ -9,6 +9,7 @@ import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.PPLibTesting;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +63,8 @@ abstract class CommandsV3TestBase {
   protected TestMechanism drive;
   protected Pose2d robotPose;
   protected final List<ChassisVelocities> outputs = new ArrayList<>();
+  protected final BiConsumer<ChassisVelocities, DriveFeedforwards> output =
+      (speeds, _) -> outputs.add(speeds);
   private long timeNanos;
 
   @BeforeEach
@@ -121,15 +124,11 @@ abstract class CommandsV3TestBase {
         path,
         () -> robotPose,
         ChassisVelocities::new,
-        this::output,
+        output,
         new PPHolonomicDriveController(new PIDConstants(5.0), new PIDConstants(5.0)),
         ROBOT_CONFIG,
         () -> false,
         drive);
-  }
-
-  protected void output(ChassisVelocities speeds, DriveFeedforwards feedforwards) {
-    outputs.add(speeds);
   }
 
   /** A straight 3 meter path along the X axis, with the given event markers */

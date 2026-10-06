@@ -2,6 +2,7 @@ package com.pathplanner.lib.util;
 
 /** Exception for a mismatch between expected and actual file versions */
 public class FileVersionException extends RuntimeException {
+  private static final long serialVersionUID = 1L;
 
   /**
    * Create a new FileVersionException

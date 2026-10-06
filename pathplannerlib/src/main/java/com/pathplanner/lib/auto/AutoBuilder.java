@@ -133,7 +133,7 @@ public class AutoBuilder {
         poseSupplier,
         resetPose,
         robotRelativeSpeedsSupplier,
-        (speeds, feedforwards) -> output.accept(speeds),
+        (speeds, _) -> output.accept(speeds),
         controller,
         robotConfig,
         shouldFlipPath,

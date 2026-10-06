@@ -96,7 +96,7 @@ class FollowPathCommandTest extends CommandsV3TestBase {
   void oneShotEventTriggerFiresOncePerMarker() {
     AtomicInteger fired = new AtomicInteger();
     new EventTrigger(scheduler, "Shoot")
-        .onTrue(Command.noRequirements(c -> fired.incrementAndGet()).named("Count"));
+        .onTrue(Command.noRequirements(_ -> fired.incrementAndGet()).named("Count"));
 
     FollowPathCommand command =
         followPathCommand(straightPath("Shoot", new EventMarker("Shoot", 0.5)));

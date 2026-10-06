@@ -229,7 +229,7 @@ public class PathfindingCommand extends Command {
             new PathConstraints(4, 3, 4, 4),
             () -> new Pose2d(1.5, 4, Rotation2d.ZERO),
             ChassisVelocities::new,
-            (speeds, feedforwards) -> {},
+            (_, _) -> {},
             new PPHolonomicDriveController(
                 new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
             new RobotConfig(

@@ -57,7 +57,7 @@ class FollowPathCommandTest {
         path,
         () -> Pose2d.ZERO,
         ChassisVelocities::new,
-        (speeds, feedforwards) -> {},
+        (_, _) -> {},
         new PPHolonomicDriveController(new PIDConstants(5.0), new PIDConstants(5.0)),
         ROBOT_CONFIG,
         () -> false,

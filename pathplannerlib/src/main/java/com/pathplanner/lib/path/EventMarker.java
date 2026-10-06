@@ -67,7 +67,7 @@ public record EventMarker(
     if (markerJson.get("command") != null) {
       try {
         cmd = CommandSpec.fromJson((JSONObject) markerJson.get("command"), false);
-      } catch (Exception ignored) {
+      } catch (Exception _) {
         // Invalid command json, this marker will not run a command
       }
     }
