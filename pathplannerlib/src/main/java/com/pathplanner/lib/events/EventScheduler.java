@@ -106,21 +106,30 @@ public class EventScheduler extends EventSchedulerBase {
   }
 
   /**
+   * Build the commands for the event markers of a path ahead of time, so they do not need to be
+   * built while the path is being followed.
+   *
+   * @param path The path to build event commands for
+   * @return Set of subsystems required by the event commands
+   */
+  public Set<Subsystem> buildEventCommands(PathPlannerPath path) {
+    Set<Subsystem> allReqs = new HashSet<>();
+    for (EventMarker m : path.getEventMarkers()) {
+      if (m.command() != null) {
+        allReqs.addAll(getEventCommand(m.command()).getRequirements());
+      }
+    }
+    return allReqs;
+  }
+
+  /**
    * Get the event requirements for the given path
    *
    * @param path The path to get all requirements for
    * @return Set of event requirements for the given path
    */
   public static Set<Subsystem> getSchedulerRequirements(PathPlannerPath path) {
-    Set<Subsystem> allReqs = new HashSet<>();
-
-    for (EventMarker m : path.getEventMarkers()) {
-      if (m.command() != null) {
-        allReqs.addAll(buildEventCommand(m.command()).getRequirements());
-      }
-    }
-
-    return allReqs;
+    return new EventScheduler().buildEventCommands(path);
   }
 
   /**
@@ -134,7 +143,7 @@ public class EventScheduler extends EventSchedulerBase {
 
   @Override
   protected void scheduleCommand(CommandSpec command) {
-    scheduleCommand(builtCommands.computeIfAbsent(command, EventScheduler::buildEventCommand));
+    scheduleCommand(getEventCommand(command));
   }
 
   @Override
@@ -160,6 +169,10 @@ public class EventScheduler extends EventSchedulerBase {
                     .andThen(Commands.runOnce(() -> EventConditions.setEventActive(name, false)))
                     .ignoringDisable(true));
     CommandScheduler.getInstance().schedule(resetCommand);
+  }
+
+  private Command getEventCommand(CommandSpec spec) {
+    return builtCommands.computeIfAbsent(spec, EventScheduler::buildEventCommand);
   }
 
   private static Command buildEventCommand(CommandSpec spec) {

@@ -6,6 +6,7 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.controllers.PathFollowingController;
 import com.pathplanner.lib.events.EventScheduler;
+import com.pathplanner.lib.follower.ActivePathState;
 import com.pathplanner.lib.follower.PathFollower;
 import com.pathplanner.lib.path.*;
 import com.pathplanner.lib.util.DriveFeedforwards;
@@ -66,7 +67,7 @@ public class FollowPathCommand extends Command {
     addRequirements(requirements);
 
     // Add all event scheduler requirements to this command's requirements
-    var eventReqs = EventScheduler.getSchedulerRequirements(path);
+    var eventReqs = eventScheduler.buildEventCommands(path);
     if (!Collections.disjoint(driveRequirements, eventReqs)) {
       throw new IllegalArgumentException(
           "Events that are triggered during path following cannot require the drive subsystem");
@@ -77,6 +78,7 @@ public class FollowPathCommand extends Command {
   @Override
   public void initialize() {
     eventScheduler.initialize(follower.start());
+    PathPlannerAuto.currentPathName = ActivePathState.getCurrentPathName();
 
     timer.reset();
     timer.start();
@@ -99,6 +101,7 @@ public class FollowPathCommand extends Command {
   public void end(boolean interrupted) {
     timer.stop();
     follower.stop(interrupted);
+    PathPlannerAuto.currentPathName = "";
     eventScheduler.end();
   }
 

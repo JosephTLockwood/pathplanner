@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.pathplanner.lib.auto.CommandSpec;
 import com.pathplanner.lib.auto.CommandUtil;
+import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
@@ -105,6 +106,7 @@ class FollowPathCommandTest {
 
     command.initialize();
     assertEquals("Straight", ActivePathState.getCurrentPathName());
+    assertEquals("Straight", PathPlannerAuto.currentPathName);
     int loops = 0;
     do {
       timeNanos += 20_000_000L;
@@ -118,6 +120,31 @@ class FollowPathCommandTest {
     assertTrue(executed.get() > 0);
     assertEquals(1, interrupted.get(), "The marker command should end at the end of its zone");
     assertEquals("", ActivePathState.getCurrentPathName());
+    assertEquals("", PathPlannerAuto.currentPathName);
+  }
+
+  @Test
+  void markerCommandsAreBuiltWhenThePathCommandIsCreated() {
+    AtomicInteger registeredRuns = new AtomicInteger();
+    AtomicInteger replacementRuns = new AtomicInteger();
+    NamedCommands.registerCommand(
+        "Intake", Commands.runOnce(registeredRuns::incrementAndGet, intake));
+    FollowPathCommand command =
+        followPathCommand(
+            straightPath(new EventMarker("Intake", 0.5, new CommandSpec.Named("Intake"))));
+
+    // The marker should run the command that was registered when the path command was created
+    NamedCommands.registerCommand(
+        "Intake", Commands.runOnce(replacementRuns::incrementAndGet, intake));
+    command.initialize();
+    for (int loops = 0; !command.isFinished() && loops < 1000; loops++) {
+      timeNanos += 20_000_000L;
+      command.execute();
+    }
+    command.end(false);
+
+    assertEquals(1, registeredRuns.get());
+    assertEquals(0, replacementRuns.get());
   }
 
   @Test

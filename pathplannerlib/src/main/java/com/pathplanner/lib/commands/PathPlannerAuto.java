@@ -34,6 +34,9 @@ import org.wpilib.util.UsageReporting;
 /** A command that loads and runs an autonomous routine built using PathPlanner. */
 public class PathPlannerAuto extends Command {
 
+  /** The name of the path currently being followed, or an empty string if no path is running */
+  public static String currentPathName = "";
+
   private static int instances = 0;
 
   private Command autoCommand;
@@ -157,15 +160,9 @@ public class PathPlannerAuto extends Command {
    */
   public static void setCurrentTrajectory(PathPlannerTrajectory trajectory) {
     ActivePathState.setCurrentTrajectory(trajectory);
-  }
-
-  /**
-   * Get the name of the path currently being followed. Used to handle activePath triggers
-   *
-   * @return The name of the current path, or an empty string if no path is being followed
-   */
-  public static String getCurrentPathName() {
-    return ActivePathState.getCurrentPathName();
+    if (trajectory == null) {
+      currentPathName = "";
+    }
   }
 
   /**
