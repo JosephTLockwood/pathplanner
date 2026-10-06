@@ -8,10 +8,9 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
-public class JSONObject extends HashMap implements Map, JSONAware, JSONStreamAware {
+public class JSONObject extends HashMap<String, Object> implements JSONAware, JSONStreamAware {
 
   private static final long serialVersionUID = -503443796854799292L;
 
@@ -19,22 +18,20 @@ public class JSONObject extends HashMap implements Map, JSONAware, JSONStreamAwa
     super();
   }
 
-  public JSONObject(Map map) {
+  public JSONObject(Map<String, ?> map) {
     super(map);
   }
 
-  public static void writeJSONString(Map map, Writer out) throws IOException {
+  public static void writeJSONString(Map<?, ?> map, Writer out) throws IOException {
     if (map == null) {
       out.write("null");
       return;
     }
     boolean first = true;
-    Iterator iter = map.entrySet().iterator();
     out.write('{');
-    while (iter.hasNext()) {
+    for (Map.Entry<?, ?> entry : map.entrySet()) {
       if (first) first = false;
       else out.write(',');
-      Map.Entry entry = (Map.Entry) iter.next();
       out.write('\"');
       out.write(escape(String.valueOf(entry.getKey())));
       out.write('\"');
@@ -48,7 +45,7 @@ public class JSONObject extends HashMap implements Map, JSONAware, JSONStreamAwa
     writeJSONString(this, out);
   }
 
-  public static String toJSONString(Map map) {
+  public static String toJSONString(Map<?, ?> map) {
     final StringWriter writer = new StringWriter();
     try {
       writeJSONString(map, writer);

@@ -68,7 +68,7 @@ public abstract class Event {
    *
    * @param eventScheduler Reference to the EventScheduler handling this event
    */
-  public abstract void handleEvent(EventScheduler eventScheduler);
+  public abstract void handleEvent(EventSchedulerBase eventScheduler);
 
   /**
    * Cancel this event. This will be called if a path following command ends before this event gets
@@ -76,7 +76,7 @@ public abstract class Event {
    *
    * @param eventScheduler Reference to the EventScheduler handling this event
    */
-  public abstract void cancelEvent(EventScheduler eventScheduler);
+  public abstract void cancelEvent(EventSchedulerBase eventScheduler);
 
   /**
    * Copy this event with a different timestamp
@@ -89,10 +89,10 @@ public abstract class Event {
   /**
    * Copy this event with a different timestamp
    *
-   * @param timestamp The new timestamp
+   * @param time The new timestamp
    * @return Copied event with new time
    */
-  public Event copyWithTimestamp(Time timestamp) {
-    return copyWithTimestamp(timestamp.in(Seconds));
+  public Event copyWithTimestamp(Time time) {
+    return copyWithTimestamp(time.in(Seconds));
   }
 }

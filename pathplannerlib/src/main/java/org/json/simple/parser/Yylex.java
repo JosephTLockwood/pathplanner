@@ -171,13 +171,7 @@ class Yylex {
 
   private int zzEndRead;
 
-  private int yyline;
-
   private int yychar;
-
-  private int yycolumn;
-
-  private boolean zzAtBOL = true;
 
   private boolean zzAtEOF;
 
@@ -239,10 +233,9 @@ class Yylex {
       int c = zzReader.read();
       if (c == -1) {
         return true;
-      } else {
-        zzBuffer[zzEndRead++] = (char) c;
-        return false;
       }
+      zzBuffer[zzEndRead++] = (char) c;
+      return false;
     }
     // numRead < 0
     return true;
@@ -258,11 +251,10 @@ class Yylex {
 
   public final void yyreset(java.io.Reader reader) {
     zzReader = reader;
-    zzAtBOL = true;
     zzAtEOF = false;
     zzEndRead = zzStartRead = 0;
     zzCurrentPos = zzMarkedPos = 0;
-    yyline = yychar = yycolumn = 0;
+    yychar = 0;
     zzLexicalState = YYINITIAL;
   }
 
@@ -290,7 +282,7 @@ class Yylex {
     String message;
     try {
       message = ZZ_ERROR_MSG[errorCode];
-    } catch (ArrayIndexOutOfBoundsException e) {
+    } catch (ArrayIndexOutOfBoundsException _) {
       message = ZZ_ERROR_MSG[ZZ_UNKNOWN_ERROR];
     }
     throw new Error(message);
@@ -339,9 +331,8 @@ class Yylex {
             if (eof) {
               zzInput = YYEOF;
               break zzForAction;
-            } else {
-              zzInput = zzBufferL[zzCurrentPosL++];
             }
+            zzInput = zzBufferL[zzCurrentPosL++];
           }
           int zzNext = zzTransL[zzRowMapL[zzState] + zzCMapL[zzInput]];
           if (zzNext == -1) break zzForAction;
@@ -515,9 +506,8 @@ class Yylex {
           if (zzInput == YYEOF && zzStartRead == zzCurrentPos) {
             zzAtEOF = true;
             return null;
-          } else {
-            zzScanError(ZZ_NO_MATCH);
           }
+          zzScanError(ZZ_NO_MATCH);
       }
     }
   }

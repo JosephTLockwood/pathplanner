@@ -1,6 +1,6 @@
 package com.pathplanner.lib.path;
 
-import com.pathplanner.lib.auto.CommandUtil;
+import com.pathplanner.lib.auto.CommandSpec;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.events.Event;
 import com.pathplanner.lib.events.OneShotTriggerEvent;
@@ -15,7 +15,6 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-import org.wpilib.command2.Command;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Translation2d;
@@ -349,7 +348,7 @@ public class PathPlannerPath {
 
       try {
         version = ((Number) json.get("version")).intValue();
-      } catch (Exception ignored) {
+      } catch (Exception _) {
         // Assume version 0
       }
 
@@ -425,8 +424,8 @@ public class PathPlannerPath {
         fullEvents.add(new OneShotTriggerEvent(fromTimestamp, name));
 
         if (markerJson.get("event") != null) {
-          Command eventCommand =
-              CommandUtil.commandFromJson((JSONObject) markerJson.get("event"), true, false);
+          CommandSpec eventCommand =
+              CommandSpec.fromJson((JSONObject) markerJson.get("event"), true);
           fullEvents.add(new ScheduleCommandEvent(fromTimestamp, eventCommand));
         }
       }
@@ -562,7 +561,8 @@ public class PathPlannerPath {
     if (dotIdx != -1) {
       try {
         splitIdx = Integer.parseInt(trajectoryName.substring(dotIdx + 1));
-      } catch (NumberFormatException ignored) {
+      } catch (NumberFormatException _) {
+        // Not a split index
       }
     }
     if (splitIdx != -1) {
@@ -1094,9 +1094,8 @@ public class PathPlannerPath {
       ChassisVelocities startingSpeeds, Rotation2d startingRotation, RobotConfig config) {
     if (isChoreoPath) {
       return idealTrajectory.orElseThrow();
-    } else {
-      return new PathPlannerTrajectory(this, startingSpeeds, startingRotation, config);
     }
+    return new PathPlannerTrajectory(this, startingSpeeds, startingRotation, config);
   }
 
   /**

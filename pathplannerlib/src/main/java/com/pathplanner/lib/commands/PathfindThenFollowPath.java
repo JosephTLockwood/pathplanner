@@ -2,21 +2,19 @@ package com.pathplanner.lib.commands;
 
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PathFollowingController;
-import com.pathplanner.lib.path.GoalEndState;
-import com.pathplanner.lib.path.IdealStartingState;
+import com.pathplanner.lib.follower.PathfindingFollower;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.DriveFeedforwards;
-import com.pathplanner.lib.util.FlippingUtil;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
 import org.wpilib.command2.SequentialCommandGroup;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.math.geometry.Pose2d;
-import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
 
 /** Command group that will pathfind to the start of a path, then follow that path */
@@ -65,54 +63,25 @@ public class PathfindThenFollowPath extends SequentialCommandGroup {
             shouldFlipPath,
             requirements),
         Commands.defer(
-            () -> {
-              if (goalPath.numPoints() < 2) {
-                return Commands.none();
-              }
-              Pose2d startPose = poseSupplier.get();
-              ChassisVelocities startSpeeds = currentRobotRelativeSpeeds.get();
-              ChassisVelocities startFieldSpeeds =
-                  startSpeeds.toFieldRelative(startPose.getRotation());
-              Rotation2d startHeading = new Rotation2d(startFieldSpeeds.vx, startFieldSpeeds.vy);
-              Pose2d endWaypoint =
-                  new Pose2d(goalPath.getPoint(0).position, goalPath.getInitialHeading());
-              boolean shouldFlip = shouldFlipPath.getAsBoolean() && !goalPath.preventFlipping;
-              if (shouldFlip) {
-                endWaypoint = FlippingUtil.flipFieldPose(endWaypoint);
-              }
-              GoalEndState endState;
-              if (goalPath.getIdealStartingState() != null) {
-                Rotation2d endRot = goalPath.getIdealStartingState().rotation();
-                if (shouldFlip) {
-                  endRot = FlippingUtil.flipFieldRotation(endRot);
-                }
-                endState = new GoalEndState(goalPath.getIdealStartingState().velocityMPS(), endRot);
-              } else {
-                endState =
-                    new GoalEndState(
-                        pathfindingConstraints.maxVelocityMPS(), startPose.getRotation());
-              }
-
-              PathPlannerPath joinPath =
-                  new PathPlannerPath(
-                      PathPlannerPath.waypointsFromPoses(
-                          new Pose2d(startPose.getTranslation(), startHeading), endWaypoint),
-                      pathfindingConstraints,
-                      new IdealStartingState(
-                          Math.hypot(startSpeeds.vx, startSpeeds.vy), startPose.getRotation()),
-                      endState);
-              joinPath.preventFlipping = true;
-
-              return new FollowPathCommand(
-                  joinPath,
-                  poseSupplier,
-                  currentRobotRelativeSpeeds,
-                  output,
-                  controller,
-                  robotConfig,
-                  shouldFlipPath,
-                  requirements);
-            },
+            () ->
+                PathfindingFollower.createJoinPath(
+                        goalPath,
+                        pathfindingConstraints,
+                        poseSupplier.get(),
+                        currentRobotRelativeSpeeds.get(),
+                        shouldFlipPath.getAsBoolean())
+                    .<Command>map(
+                        joinPath ->
+                            new FollowPathCommand(
+                                joinPath,
+                                poseSupplier,
+                                currentRobotRelativeSpeeds,
+                                output,
+                                controller,
+                                robotConfig,
+                                shouldFlipPath,
+                                requirements))
+                    .orElseGet(Commands::none),
             Set.of(requirements)),
         new FollowPathCommand(
             goalPath,

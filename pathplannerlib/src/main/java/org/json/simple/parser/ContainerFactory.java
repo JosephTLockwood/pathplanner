@@ -5,7 +5,7 @@ import java.util.Map;
 
 public interface ContainerFactory {
 
-  Map createObjectContainer();
+  Map<String, Object> createObjectContainer();
 
-  List creatArrayContainer();
+  List<Object> creatArrayContainer();
 }

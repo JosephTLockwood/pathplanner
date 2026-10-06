@@ -6,11 +6,10 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.controllers.PathFollowingController;
 import com.pathplanner.lib.events.EventScheduler;
+import com.pathplanner.lib.follower.ActivePathState;
+import com.pathplanner.lib.follower.PathFollower;
 import com.pathplanner.lib.path.*;
-import com.pathplanner.lib.trajectory.PathPlannerTrajectory;
 import com.pathplanner.lib.util.DriveFeedforwards;
-import com.pathplanner.lib.util.PPLibTelemetry;
-import com.pathplanner.lib.util.PathPlannerLogging;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
@@ -29,25 +28,9 @@ public class FollowPathCommand extends Command {
 
   private final Timer timer = new Timer();
 
-  private final PathPlannerPath originalPath;
-
-  private final Supplier<Pose2d> poseSupplier;
-
-  private final Supplier<ChassisVelocities> speedsSupplier;
-
-  private final BiConsumer<ChassisVelocities, DriveFeedforwards> output;
-
-  private final PathFollowingController controller;
-
-  private final RobotConfig robotConfig;
-
-  private final BooleanSupplier shouldFlipPath;
+  private final PathFollower follower;
 
   private final EventScheduler eventScheduler;
-
-  private PathPlannerPath path;
-
-  private PathPlannerTrajectory trajectory;
 
   /**
    * Construct a base path following command
@@ -75,69 +58,26 @@ public class FollowPathCommand extends Command {
       RobotConfig robotConfig,
       BooleanSupplier shouldFlipPath,
       Subsystem... requirements) {
-    this.originalPath = path;
-    this.poseSupplier = poseSupplier;
-    this.speedsSupplier = speedsSupplier;
-    this.output = output;
-    this.controller = controller;
-    this.robotConfig = robotConfig;
-    this.shouldFlipPath = shouldFlipPath;
+    this.follower =
+        new PathFollower(
+            path, poseSupplier, speedsSupplier, output, controller, robotConfig, shouldFlipPath);
     this.eventScheduler = new EventScheduler();
     Set<Subsystem> driveRequirements = Set.of(requirements);
     addRequirements(requirements);
     // Add all event scheduler requirements to this command's requirements
-    var eventReqs = EventScheduler.getSchedulerRequirements(this.originalPath);
+    var eventReqs = eventScheduler.buildEventCommands(path);
     if (!Collections.disjoint(driveRequirements, eventReqs)) {
       throw new IllegalArgumentException(
           "Events that are triggered during path following cannot require the drive subsystem");
     }
     addRequirements(eventReqs);
-    this.path = this.originalPath;
-    // Ensure the ideal trajectory is generated
-    Optional<PathPlannerTrajectory> idealTrajectory =
-        this.path.getIdealTrajectory(this.robotConfig);
-    idealTrajectory.ifPresent(traj -> this.trajectory = traj);
   }
 
   @Override
   public void initialize() {
-    if (shouldFlipPath.getAsBoolean() && !originalPath.preventFlipping) {
-      path = originalPath.flipPath();
-    } else {
-      path = originalPath;
-    }
-    Pose2d currentPose = poseSupplier.get();
-    ChassisVelocities currentSpeeds = speedsSupplier.get();
-    controller.reset(currentPose, currentSpeeds);
-    double linearVel = Math.hypot(currentSpeeds.vx, currentSpeeds.vy);
-    if (path.getIdealStartingState() != null) {
-      // Check if we match the ideal starting state
-      boolean idealVelocity =
-          Math.abs(linearVel - path.getIdealStartingState().velocityMPS()) <= 0.25;
-      boolean idealRotation =
-          !robotConfig.isHolonomic
-              || Math.abs(
-                      currentPose
-                          .getRotation()
-                          .minus(path.getIdealStartingState().rotation())
-                          .getDegrees())
-                  <= 30.0;
-      if (idealVelocity && idealRotation) {
-        // We can use the ideal trajectory
-        trajectory = path.getIdealTrajectory(robotConfig).orElseThrow();
-      } else {
-        // We need to regenerate
-        trajectory = path.generateTrajectory(currentSpeeds, currentPose.getRotation(), robotConfig);
-      }
-    } else {
-      // No ideal starting state, generate the trajectory
-      trajectory = path.generateTrajectory(currentSpeeds, currentPose.getRotation(), robotConfig);
-    }
-    PathPlannerAuto.setCurrentTrajectory(trajectory);
-    PathPlannerAuto.currentPathName = originalPath.name;
-    PathPlannerLogging.logActivePath(path);
-    PPLibTelemetry.setCurrentPath(path);
-    eventScheduler.initialize(trajectory);
+    eventScheduler.initialize(follower.start());
+    PathPlannerAuto.currentPathName = ActivePathState.getCurrentPathName();
+
     timer.reset();
     timer.start();
   }
@@ -145,42 +85,21 @@ public class FollowPathCommand extends Command {
   @Override
   public void execute() {
     double currentTime = timer.get();
-    var targetState = trajectory.sample(currentTime);
-    if (!controller.isHolonomic() && path.isReversed()) {
-      targetState = targetState.reverse();
-    }
-    Pose2d currentPose = poseSupplier.get();
-    ChassisVelocities currentSpeeds = speedsSupplier.get();
-    ChassisVelocities targetSpeeds =
-        controller.calculateRobotRelativeSpeeds(currentPose, targetState);
-    double currentVel = Math.hypot(currentSpeeds.vx, currentSpeeds.vy);
-    PPLibTelemetry.setCurrentPose(currentPose);
-    PathPlannerLogging.logCurrentPose(currentPose);
-    PPLibTelemetry.setTargetPose(targetState.pose);
-    PathPlannerLogging.logTargetPose(targetState.pose);
-    PPLibTelemetry.setVelocities(
-        currentVel, targetState.linearVelocity, currentSpeeds.omega, targetSpeeds.omega);
-    output.accept(targetSpeeds, targetState.feedforwards);
+
+    follower.follow(currentTime);
     eventScheduler.execute(currentTime);
   }
 
   @Override
   public boolean isFinished() {
-    double totalTime = trajectory.getTotalTimeSeconds();
-    return timer.hasElapsed(totalTime) || !Double.isFinite(totalTime);
+    return follower.isFinished(timer.get());
   }
 
   @Override
   public void end(boolean interrupted) {
     timer.stop();
+    follower.stop(interrupted);
     PathPlannerAuto.currentPathName = "";
-    PathPlannerAuto.setCurrentTrajectory(null);
-    // Only output 0 speeds when ending a path that is supposed to stop, this allows interrupting
-    // the command to smoothly transition into some auto-alignment routine
-    if (!interrupted && path.getGoalEndState().velocityMPS() < 0.1) {
-      output.accept(new ChassisVelocities(), DriveFeedforwards.zeros(robotConfig.numModules));
-    }
-    PathPlannerLogging.logActivePath(null);
     eventScheduler.end();
   }
 
@@ -203,7 +122,7 @@ public class FollowPathCommand extends Command {
             path,
             () -> Pose2d.ZERO,
             ChassisVelocities::new,
-            (speeds, feedforwards) -> {},
+            (_, _) -> {},
             new PPHolonomicDriveController(
                 new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
             new RobotConfig(

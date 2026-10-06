@@ -1,8 +1,7 @@
 package com.pathplanner.lib.path;
 
-import com.pathplanner.lib.auto.CommandUtil;
+import com.pathplanner.lib.auto.CommandSpec;
 import org.json.simple.JSONObject;
-import org.wpilib.command2.Command;
 
 /**
  * Position along the path that will trigger a command when reached
@@ -12,9 +11,11 @@ import org.wpilib.command2.Command;
  * @param endPosition The end waypoint relative position of the event's zone. A value of -1.0
  *     indicates that this event is not zoned.
  * @param command The command that should be run at this marker. Can be null to not run a command.
+ *     This is a framework-independent description of the command; the command following the path
+ *     will build the actual command from it.
  */
 public record EventMarker(
-    String triggerName, double position, double endPosition, Command command) {
+    String triggerName, double position, double endPosition, CommandSpec command) {
 
   /**
    * Create a new event marker
@@ -23,7 +24,7 @@ public record EventMarker(
    * @param position The waypoint relative position of the marker
    * @param command The command that should be triggered at this marker
    */
-  public EventMarker(String triggerName, double position, Command command) {
+  public EventMarker(String triggerName, double position, CommandSpec command) {
     this(triggerName, position, -1.0, command);
   }
 
@@ -62,12 +63,12 @@ public record EventMarker(
     if (markerJson.get("endWaypointRelativePos") != null) {
       endPos = ((Number) markerJson.get("endWaypointRelativePos")).doubleValue();
     }
-    Command cmd = null;
+    CommandSpec cmd = null;
     if (markerJson.get("command") != null) {
       try {
-        cmd = CommandUtil.commandFromJson((JSONObject) markerJson.get("command"), false, false);
-      } catch (Exception ignored) {
-        // Path files won't be loaded from event markers
+        cmd = CommandSpec.fromJson((JSONObject) markerJson.get("command"), false);
+      } catch (Exception _) {
+        // Invalid command json, this marker will not run a command
       }
     }
     return new EventMarker(name, pos, endPos, cmd);

@@ -1,5 +1,6 @@
 package com.pathplanner.lib.auto;
 
+import com.pathplanner.lib.util.PPLibTesting;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,10 @@ import org.wpilib.util.Pair;
 public class NamedCommands {
 
   private static final HashMap<String, Command> namedCommands = new HashMap<>();
+
+  static {
+    PPLibTesting.addResetHook(NamedCommands::clearAll);
+  }
 
   /**
    * Registers a command with the given name.
@@ -62,14 +67,13 @@ public class NamedCommands {
   public static Command getCommand(String name) {
     if (hasCommand(name)) {
       return CommandUtil.wrappedEventCommand(namedCommands.get(name));
-    } else {
-      DriverStationErrors.reportWarning(
-          "PathPlanner attempted to create a command '"
-              + name
-              + "' that has not been registered with NamedCommands.registerCommand",
-          false);
-      return Commands.none();
     }
+    DriverStationErrors.reportWarning(
+        "PathPlanner attempted to create a command '"
+            + name
+            + "' that has not been registered with NamedCommands.registerCommand",
+        false);
+    return Commands.none();
   }
 
   /** Removes all registered named commands. */

@@ -9,9 +9,8 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 
-public class JSONArray extends ArrayList implements JSONAware, JSONStreamAware {
+public class JSONArray extends ArrayList<Object> implements JSONAware, JSONStreamAware {
 
   private static final long serialVersionUID = 3957988303675231981L;
 
@@ -19,22 +18,20 @@ public class JSONArray extends ArrayList implements JSONAware, JSONStreamAware {
     super();
   }
 
-  public JSONArray(Collection c) {
+  public JSONArray(Collection<?> c) {
     super(c);
   }
 
-  public static void writeJSONString(Collection collection, Writer out) throws IOException {
+  public static void writeJSONString(Collection<?> collection, Writer out) throws IOException {
     if (collection == null) {
       out.write("null");
       return;
     }
     boolean first = true;
-    Iterator iter = collection.iterator();
     out.write('[');
-    while (iter.hasNext()) {
+    for (Object value : collection) {
       if (first) first = false;
       else out.write(',');
-      Object value = iter.next();
       if (value == null) {
         out.write("null");
         continue;
@@ -48,7 +45,7 @@ public class JSONArray extends ArrayList implements JSONAware, JSONStreamAware {
     writeJSONString(this, out);
   }
 
-  public static String toJSONString(Collection collection) {
+  public static String toJSONString(Collection<?> collection) {
     final StringWriter writer = new StringWriter();
     try {
       writeJSONString(collection, writer);

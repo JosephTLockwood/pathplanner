@@ -20,6 +20,7 @@
     </toc-element>
     <toc-element topic="PathPlannerLib.topic">
         <toc-element topic="pplib-Getting-Started.md"/>
+        <toc-element topic="pplib-Commands-v3.md"/>
         <toc-element topic="pplib-Build-an-Auto.md"/>
         <toc-element topic="pplib-Named-Commands.md"/>
         <toc-element topic="pplib-Triggers.md"/>

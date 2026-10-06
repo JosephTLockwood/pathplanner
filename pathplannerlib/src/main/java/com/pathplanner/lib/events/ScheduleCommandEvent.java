@@ -2,13 +2,13 @@ package com.pathplanner.lib.events;
 
 import static org.wpilib.units.Units.Seconds;
 
-import org.wpilib.command2.Command;
+import com.pathplanner.lib.auto.CommandSpec;
 import org.wpilib.units.measure.Time;
 
 /** Event that will schedule a command within the EventScheduler */
 public class ScheduleCommandEvent extends Event {
 
-  private final Command command;
+  private final CommandSpec command;
 
   /**
    * Create an event to schedule a command
@@ -16,7 +16,7 @@ public class ScheduleCommandEvent extends Event {
    * @param timestamp The trajectory timestamp for this event
    * @param command The command to schedule
    */
-  public ScheduleCommandEvent(double timestamp, Command command) {
+  public ScheduleCommandEvent(double timestamp, CommandSpec command) {
     super(timestamp);
     this.command = command;
   }
@@ -27,17 +27,17 @@ public class ScheduleCommandEvent extends Event {
    * @param timestamp The trajectory timestamp for this event
    * @param command The command to schedule
    */
-  public ScheduleCommandEvent(Time timestamp, Command command) {
+  public ScheduleCommandEvent(Time timestamp, CommandSpec command) {
     this(timestamp.in(Seconds), command);
   }
 
   @Override
-  public void handleEvent(EventScheduler eventScheduler) {
+  public void handleEvent(EventSchedulerBase eventScheduler) {
     eventScheduler.scheduleCommand(command);
   }
 
   @Override
-  public void cancelEvent(EventScheduler eventScheduler) {
+  public void cancelEvent(EventSchedulerBase eventScheduler) {
     // Do nothing
   }
 

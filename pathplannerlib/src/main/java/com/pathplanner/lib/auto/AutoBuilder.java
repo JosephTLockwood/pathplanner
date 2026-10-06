@@ -9,11 +9,10 @@ import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.FlippingUtil;
-import java.io.File;
+import com.pathplanner.lib.util.PPLibTesting;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
@@ -21,7 +20,6 @@ import org.wpilib.command2.Subsystem;
 import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
-import org.wpilib.system.Filesystem;
 import org.wpilib.tunable.Selectable;
 import org.wpilib.units.measure.LinearVelocity;
 
@@ -29,6 +27,10 @@ import org.wpilib.units.measure.LinearVelocity;
 public class AutoBuilder {
 
   private static Globals globals = new Globals();
+
+  static {
+    PPLibTesting.addResetHook(AutoBuilder::resetForTesting);
+  }
 
   /**
    * Configures the AutoBuilder for using PathPlanner's built-in commands.
@@ -131,7 +133,7 @@ public class AutoBuilder {
         poseSupplier,
         resetPose,
         robotRelativeSpeedsSupplier,
-        (speeds, feedforwards) -> output.accept(speeds),
+        (speeds, _) -> output.accept(speeds),
         controller,
         robotConfig,
         shouldFlipPath,
@@ -468,16 +470,7 @@ public class AutoBuilder {
    * @return List of all auto names
    */
   public static List<String> getAllAutoNames() {
-    File[] autoFiles = new File(Filesystem.getDeployDirectory(), "pathplanner/autos").listFiles();
-    if (autoFiles == null) {
-      return new ArrayList<>();
-    }
-    return Stream.of(autoFiles)
-        .filter(file -> !file.isDirectory())
-        .map(File::getName)
-        .filter(name -> name.endsWith(".auto"))
-        .map(name -> name.substring(0, name.lastIndexOf(".")))
-        .collect(Collectors.toList());
+    return AutoFile.getAllAutoNames();
   }
 
   /**

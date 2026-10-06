@@ -119,7 +119,7 @@ public class LocalADStar implements Pathfinder {
         JSONObject fieldSize = (JSONObject) json.get("field_size");
         fieldLength = ((Number) fieldSize.get("x")).doubleValue();
         fieldWidth = ((Number) fieldSize.get("y")).doubleValue();
-      } catch (Exception e) {
+      } catch (Exception _) {
         // Do nothing, use defaults
       }
     }
@@ -253,7 +253,6 @@ public class LocalADStar implements Pathfinder {
     }
   }
 
-  @SuppressWarnings("BusyWait")
   private void runThread() {
     while (true) {
       try {
@@ -285,7 +284,7 @@ public class LocalADStar implements Pathfinder {
             throw new RuntimeException(e);
           }
         }
-      } catch (Exception e) {
+      } catch (Exception _) {
         // Something messed up. Reset and hope for the best
         requestLock.writeLock().lock();
         requestReset = true;
@@ -320,7 +319,7 @@ public class LocalADStar implements Pathfinder {
       if (eps > 1.0) {
         eps -= 0.5;
         open.putAll(incons);
-        open.replaceAll((s, v) -> key(s, sStart));
+        open.replaceAll((s, _) -> key(s, sStart));
         closed.clear();
         computeOrImprovePath(sStart, sGoal, obstacles);
         List<GridPosition> pathPositions = extractPath(sStart, sGoal, obstacles);
@@ -596,9 +595,8 @@ public class LocalADStar implements Pathfinder {
   private Pair<Double, Double> key(GridPosition s, GridPosition sStart) {
     if (g.get(s) > rhs.get(s)) {
       return Pair.of(rhs.get(s) + eps * heuristic(sStart, s), rhs.get(s));
-    } else {
-      return Pair.of(g.get(s) + heuristic(sStart, s), g.get(s));
     }
+    return Pair.of(g.get(s) + heuristic(sStart, s), g.get(s));
   }
 
   private Pair<GridPosition, Pair<Double, Double>> topKey() {
@@ -622,9 +620,8 @@ public class LocalADStar implements Pathfinder {
     int first = Double.compare(a.getFirst(), b.getFirst());
     if (first == 0) {
       return Double.compare(a.getSecond(), b.getSecond());
-    } else {
-      return first;
     }
+    return first;
   }
 
   private GridPosition getGridPos(Translation2d pos) {
@@ -650,9 +647,8 @@ public class LocalADStar implements Pathfinder {
     public int compareTo(GridPosition o) {
       if (x == o.x) {
         return Integer.compare(y, o.y);
-      } else {
-        return Integer.compare(x, o.x);
       }
+      return Integer.compare(x, o.x);
     }
   }
 }

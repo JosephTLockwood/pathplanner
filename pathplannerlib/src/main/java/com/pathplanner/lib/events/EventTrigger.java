@@ -1,6 +1,5 @@
 package com.pathplanner.lib.events;
 
-import java.util.HashMap;
 import java.util.function.BooleanSupplier;
 import org.wpilib.command2.button.Trigger;
 import org.wpilib.event.EventLoop;
@@ -10,8 +9,6 @@ import org.wpilib.event.EventLoop;
  * PathPlannerTrajectory
  */
 public class EventTrigger extends Trigger {
-
-  private static final HashMap<String, Boolean> eventConditions = new HashMap<>();
 
   /**
    * Create a new EventTrigger. This will run on the EventScheduler's event loop, which will be
@@ -41,11 +38,7 @@ public class EventTrigger extends Trigger {
    * @return A boolean supplier to poll the event's condition
    */
   private static BooleanSupplier pollCondition(String name) {
-    // Ensure there is a condition in the map for this name
-    if (!eventConditions.containsKey(name)) {
-      eventConditions.put(name, false);
-    }
-    return () -> eventConditions.get(name);
+    return () -> EventConditions.isEventActive(name);
   }
 
   /**
@@ -55,6 +48,6 @@ public class EventTrigger extends Trigger {
    * @param value The value of the condition
    */
   protected static void setCondition(String name, boolean value) {
-    eventConditions.put(name, value);
+    EventConditions.setEventActive(name, value);
   }
 }

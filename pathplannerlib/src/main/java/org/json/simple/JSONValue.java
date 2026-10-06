@@ -10,7 +10,6 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Collection;
-// import java.util.List;
 import java.util.Map;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -21,7 +20,7 @@ public class JSONValue {
     try {
       JSONParser parser = new JSONParser();
       return parser.parse(in);
-    } catch (Exception e) {
+    } catch (Exception _) {
       return null;
     }
   }
@@ -79,11 +78,11 @@ public class JSONValue {
       return;
     }
     if (value instanceof Map) {
-      JSONObject.writeJSONString((Map) value, out);
+      JSONObject.writeJSONString((Map<?, ?>) value, out);
       return;
     }
     if (value instanceof Collection) {
-      JSONArray.writeJSONString((Collection) value, out);
+      JSONArray.writeJSONString((Collection<?>) value, out);
       return;
     }
     if (value instanceof byte[]) {

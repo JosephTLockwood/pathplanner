@@ -1,30 +1,40 @@
 package com.pathplanner.lib.events;
 
+import com.pathplanner.lib.auto.CommandSpec;
+import com.pathplanner.lib.auto.CommandUtil;
 import com.pathplanner.lib.path.EventMarker;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.trajectory.PathPlannerTrajectory;
+import java.io.IOException;
 import java.util.*;
+import org.json.simple.parser.ParseException;
 import org.wpilib.command2.Command;
+import org.wpilib.command2.CommandScheduler;
+import org.wpilib.command2.Commands;
 import org.wpilib.command2.Subsystem;
+import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.event.EventLoop;
 
 /**
- * Scheduler for running events while following a trajectory
+ * Scheduler for running events while following a trajectory, using Commands v2
  *
  * <p>Note: The command that is running this scheduler must have the requirements of all commands
  * that will be run during the path being followed.
  */
-public class EventScheduler {
+public class EventScheduler extends EventSchedulerBase {
 
   private static final EventLoop eventLoop = new EventLoop();
 
   private final Map<Command, Boolean> eventCommands;
+
+  private final Map<CommandSpec, Command> builtCommands;
 
   private final Queue<Event> upcomingEvents;
 
   /** Create a new EventScheduler */
   public EventScheduler() {
     this.eventCommands = new HashMap<>();
+    this.builtCommands = new IdentityHashMap<>();
     this.upcomingEvents =
         new PriorityQueue<>(Comparator.comparingDouble(Event::getTimestampSeconds));
   }
@@ -87,19 +97,30 @@ public class EventScheduler {
   }
 
   /**
+   * Build the commands for the event markers of a path ahead of time, so they do not need to be
+   * built while the path is being followed.
+   *
+   * @param path The path to build event commands for
+   * @return Set of subsystems required by the event commands
+   */
+  public Set<Subsystem> buildEventCommands(PathPlannerPath path) {
+    Set<Subsystem> allReqs = new HashSet<>();
+    for (EventMarker m : path.getEventMarkers()) {
+      if (m.command() != null) {
+        allReqs.addAll(getEventCommand(m.command()).getRequirements());
+      }
+    }
+    return allReqs;
+  }
+
+  /**
    * Get the event requirements for the given path
    *
    * @param path The path to get all requirements for
    * @return Set of event requirements for the given path
    */
   public static Set<Subsystem> getSchedulerRequirements(PathPlannerPath path) {
-    Set<Subsystem> allReqs = new HashSet<>();
-    for (EventMarker m : path.getEventMarkers()) {
-      if (m.command() != null) {
-        allReqs.addAll(m.command().getRequirements());
-      }
-    }
-    return allReqs;
+    return new EventScheduler().buildEventCommands(path);
   }
 
   /**
@@ -109,6 +130,47 @@ public class EventScheduler {
    */
   protected static EventLoop getEventLoop() {
     return eventLoop;
+  }
+
+  @Override
+  protected void scheduleCommand(CommandSpec command) {
+    scheduleCommand(getEventCommand(command));
+  }
+
+  @Override
+  protected void cancelCommand(CommandSpec command) {
+    Command built = builtCommands.get(command);
+    if (built != null) {
+      cancelCommand(built);
+    }
+  }
+
+  @Override
+  @SuppressWarnings("resource") // The command scheduler is a singleton that must not be closed
+  protected void handleOneShotTrigger(String eventName) {
+    EventConditions.setEventActive(eventName, true);
+
+    // We schedule this command with the main command scheduler so that it is guaranteed to be run
+    // in its entirety, since the EventScheduler could cancel this command before it finishes
+    CommandScheduler.getInstance()
+        .schedule(
+            Commands.waitSeconds(0.0)
+                .andThen(Commands.runOnce(() -> EventConditions.setEventActive(eventName, false)))
+                .ignoringDisable(true));
+  }
+
+  private Command getEventCommand(CommandSpec spec) {
+    return builtCommands.computeIfAbsent(spec, EventScheduler::buildEventCommand);
+  }
+
+  private static Command buildEventCommand(CommandSpec spec) {
+    try {
+      return CommandUtil.buildCommand(spec, false);
+    } catch (IOException | ParseException e) {
+      DriverStationErrors.reportError(
+          "Failed to build event command: " + e.getMessage(), e.getStackTrace());
+      return Commands.none();
+    }
   }
 
   /**

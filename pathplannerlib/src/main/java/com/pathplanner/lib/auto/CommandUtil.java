@@ -1,13 +1,13 @@
 package com.pathplanner.lib.auto;
 
-import com.pathplanner.lib.path.PathPlannerPath;
 import java.io.IOException;
-import org.json.simple.JSONArray;
+import java.util.Arrays;
+import java.util.List;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 import org.wpilib.command2.*;
 
-/** Utility class for building commands used in autos */
+/** Utility class for building Commands v2 commands used in autos */
 public class CommandUtil {
 
   /**
@@ -40,93 +40,58 @@ public class CommandUtil {
   public static Command commandFromJson(
       JSONObject commandJson, boolean loadChoreoPaths, boolean mirror)
       throws IOException, ParseException {
-    String type = (String) commandJson.get("type");
-    JSONObject data = (JSONObject) commandJson.get("data");
-    return switch (type) {
-      case "wait" -> waitCommandFromData(data);
-      case "named" -> namedCommandFromData(data);
-      case "path" -> pathCommandFromData(data, loadChoreoPaths, mirror);
-      case "sequential" -> sequentialGroupFromData(data, loadChoreoPaths, mirror);
-      case "parallel" -> parallelGroupFromData(data, loadChoreoPaths, mirror);
-      case "race" -> raceGroupFromData(data, loadChoreoPaths, mirror);
-      case "deadline" -> deadlineGroupFromData(data, loadChoreoPaths, mirror);
-      default -> Commands.none();
+    return buildCommand(CommandSpec.fromJson(commandJson, loadChoreoPaths), mirror);
+  }
+
+  /**
+   * Builds a command from the given command spec.
+   *
+   * @param spec the spec describing the command to build
+   * @param mirror Should the paths be mirrored
+   * @return a command built from the spec
+   * @throws IOException if attempting to load a path file that does not exist or cannot be read
+   * @throws ParseException If attempting to load a path with JSON that cannot be parsed
+   */
+  public static Command buildCommand(CommandSpec spec, boolean mirror)
+      throws IOException, ParseException {
+    return switch (spec) {
+      case CommandSpec.None _ -> Commands.none();
+      case CommandSpec.Wait wait -> Commands.waitSeconds(wait.waitTimeSeconds());
+      case CommandSpec.Named named -> NamedCommands.getCommand(named.name());
+      case CommandSpec.FollowPath path -> AutoBuilder.followPath(path.loadPath(mirror));
+      case CommandSpec.Group group -> {
+        Command[] commands = buildCommands(group.commands(), mirror);
+        yield switch (group.type()) {
+          case SEQUENTIAL -> new SequentialCommandGroup(commands);
+          case PARALLEL -> new ParallelCommandGroup(commands);
+          case RACE -> new ParallelRaceGroup(commands);
+          case DEADLINE -> deadlineGroup(commands);
+        };
+      }
+      case CommandSpec.Prebuilt prebuilt -> {
+        if (prebuilt.command() instanceof Command command) {
+          yield command;
+        }
+        throw new IllegalArgumentException(
+            "Prebuilt command spec does not contain a Commands v2 command: " + prebuilt.command());
+      }
     };
   }
 
-  private static Command waitCommandFromData(JSONObject dataJson) {
-    try {
-      double waitTime = ((Number) dataJson.get("waitTime")).doubleValue();
-      return Commands.waitSeconds(waitTime);
-    } catch (Exception ignored) {
-      // Failed to load wait time as a number. This is probably a choreo expression
-      JSONObject waitTimeJson = (JSONObject) dataJson.get("waitTime");
-      double waitTime = ((Number) waitTimeJson.get("val")).doubleValue();
-      return Commands.waitSeconds(waitTime);
-    }
-  }
-
-  private static Command namedCommandFromData(JSONObject dataJson) {
-    String name = (String) dataJson.get("name");
-    return NamedCommands.getCommand(name);
-  }
-
-  private static Command pathCommandFromData(
-      JSONObject dataJson, boolean choreoPath, boolean mirror) throws IOException, ParseException {
-    String pathName = (String) dataJson.get("pathName");
-    PathPlannerPath path =
-        choreoPath
-            ? PathPlannerPath.fromChoreoTrajectory(pathName)
-            : PathPlannerPath.fromPathFile(pathName);
-    if (mirror) {
-      path = path.mirrorPath();
-    }
-    return AutoBuilder.followPath(path);
-  }
-
-  private static Command sequentialGroupFromData(
-      JSONObject dataJson, boolean loadChoreoPaths, boolean mirror)
+  private static Command[] buildCommands(List<CommandSpec> specs, boolean mirror)
       throws IOException, ParseException {
-    SequentialCommandGroup group = new SequentialCommandGroup();
-    for (var cmdJson : (JSONArray) dataJson.get("commands")) {
-      group.addCommands(commandFromJson((JSONObject) cmdJson, loadChoreoPaths, mirror));
+    Command[] commands = new Command[specs.size()];
+    for (int i = 0; i < specs.size(); i++) {
+      commands[i] = buildCommand(specs.get(i), mirror);
     }
-    return group;
+    return commands;
   }
 
-  private static Command parallelGroupFromData(
-      JSONObject dataJson, boolean loadChoreoPaths, boolean mirror)
-      throws IOException, ParseException {
-    ParallelCommandGroup group = new ParallelCommandGroup();
-    for (var cmdJson : (JSONArray) dataJson.get("commands")) {
-      group.addCommands(commandFromJson((JSONObject) cmdJson, loadChoreoPaths, mirror));
-    }
-    return group;
-  }
-
-  private static Command raceGroupFromData(
-      JSONObject dataJson, boolean loadChoreoPaths, boolean mirror)
-      throws IOException, ParseException {
-    ParallelRaceGroup group = new ParallelRaceGroup();
-    for (var cmdJson : (JSONArray) dataJson.get("commands")) {
-      group.addCommands(commandFromJson((JSONObject) cmdJson, loadChoreoPaths, mirror));
-    }
-    return group;
-  }
-
-  private static Command deadlineGroupFromData(
-      JSONObject dataJson, boolean loadChoreoPaths, boolean mirror)
-      throws IOException, ParseException {
-    JSONArray cmds = (JSONArray) dataJson.get("commands");
-    if (!cmds.isEmpty()) {
-      Command deadline = commandFromJson((JSONObject) cmds.get(0), loadChoreoPaths, mirror);
-      ParallelDeadlineGroup group = new ParallelDeadlineGroup(deadline);
-      for (int i = 1; i < cmds.size(); i++) {
-        group.addCommands(commandFromJson((JSONObject) cmds.get(i), loadChoreoPaths, mirror));
-      }
-      return group;
-    } else {
+  private static Command deadlineGroup(Command[] commands) {
+    if (commands.length == 0) {
       return Commands.none();
     }
+
+    return new ParallelDeadlineGroup(commands[0], Arrays.copyOfRange(commands, 1, commands.length));
   }
 }

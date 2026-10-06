@@ -1,11 +1,11 @@
 package com.pathplanner.lib.util;
 
-import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.path.PathPlannerPath;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Consumer;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.wpilib.driverstation.DriverStationErrors;
@@ -20,27 +20,23 @@ public class PPLibTelemetry {
 
   private static boolean compMode = false;
 
+  private static final NetworkTableInstance nt = NetworkTableInstance.getDefault();
+
   private static final DoubleArrayPublisher velPub =
-      NetworkTableInstance.getDefault().getDoubleArrayTopic("/PathPlanner/vel").publish();
+      nt.getDoubleArrayTopic("/PathPlanner/vel").publish();
 
   private static final StructPublisher<Pose2d> posePub =
-      NetworkTableInstance.getDefault()
-          .getStructTopic("/PathPlanner/currentPose", Pose2d.struct)
-          .publish();
+      nt.getStructTopic("/PathPlanner/currentPose", Pose2d.struct).publish();
 
   private static final StructArrayPublisher<Pose2d> pathPub =
-      NetworkTableInstance.getDefault()
-          .getStructArrayTopic("/PathPlanner/activePath", Pose2d.struct)
-          .publish();
+      nt.getStructArrayTopic("/PathPlanner/activePath", Pose2d.struct).publish();
 
   private static final StructPublisher<Pose2d> targetPosePub =
-      NetworkTableInstance.getDefault()
-          .getStructTopic("/PathPlanner/targetPose", Pose2d.struct)
-          .publish();
+      nt.getStructTopic("/PathPlanner/targetPose", Pose2d.struct).publish();
 
   private static final Map<String, List<PathPlannerPath>> hotReloadPaths = new HashMap<>();
 
-  private static final Map<String, List<PathPlannerAuto>> hotReloadAutos = new HashMap<>();
+  private static final Map<String, List<Consumer<JSONObject>>> hotReloadAutos = new HashMap<>();
 
   private static NetworkTableListener hotReloadPathListener = null;
 
@@ -120,15 +116,15 @@ public class PPLibTelemetry {
    * Register an auto for hot reload. This is used internally.
    *
    * @param autoName Name of the auto
-   * @param auto Reference to the auto
+   * @param hotReload Function that will reload the auto from the updated auto json
    */
-  public static void registerHotReloadAuto(String autoName, PathPlannerAuto auto) {
+  public static void registerHotReloadAuto(String autoName, Consumer<JSONObject> hotReload) {
     if (!compMode) {
       ensureHotReloadListenersInitialized();
       if (!hotReloadAutos.containsKey(autoName)) {
         hotReloadAutos.put(autoName, new ArrayList<>());
       }
-      hotReloadAutos.get(autoName).add(auto);
+      hotReloadAutos.get(autoName).add(hotReload);
     }
   }
 
@@ -136,16 +132,14 @@ public class PPLibTelemetry {
     if (hotReloadPathListener == null) {
       hotReloadPathListener =
           NetworkTableListener.createListener(
-              NetworkTableInstance.getDefault()
-                  .getStringTopic("/PathPlanner/HotReload/hotReloadPath"),
+              nt.getStringTopic("/PathPlanner/HotReload/hotReloadPath"),
               EnumSet.of(NetworkTableEvent.Kind.VALUE_REMOTE),
               PPLibTelemetry::handlePathHotReloadEvent);
     }
     if (hotReloadAutoListener == null) {
       hotReloadAutoListener =
           NetworkTableListener.createListener(
-              NetworkTableInstance.getDefault()
-                  .getStringTopic("/PathPlanner/HotReload/hotReloadAuto"),
+              nt.getStringTopic("/PathPlanner/HotReload/hotReloadAuto"),
               EnumSet.of(NetworkTableEvent.Kind.VALUE_REMOTE),
               PPLibTelemetry::handleAutoHotReloadEvent);
     }
@@ -173,12 +167,12 @@ public class PPLibTelemetry {
           try (FileWriter writer = new FileWriter(pathFile)) {
             writer.write(pathJson.toJSONString());
             writer.flush();
-          } catch (IOException e) {
+          } catch (IOException _) {
             DriverStationErrors.reportWarning(
                 "Failed to save updated path file contents, please re-deploy code", false);
           }
         }
-      } catch (Exception e) {
+      } catch (Exception _) {
         // Ignore
       }
     }
@@ -196,8 +190,8 @@ public class PPLibTelemetry {
         String name = (String) json.get("name");
         JSONObject autoJson = (JSONObject) json.get("auto");
         if (hotReloadAutos.containsKey(name)) {
-          for (PathPlannerAuto auto : hotReloadAutos.get(name)) {
-            auto.hotReload(autoJson);
+          for (Consumer<JSONObject> hotReload : hotReloadAutos.get(name)) {
+            hotReload.accept(autoJson);
           }
         }
         if (RobotBase.isReal()) {
@@ -206,12 +200,12 @@ public class PPLibTelemetry {
           try (FileWriter writer = new FileWriter(pathFile)) {
             writer.write(autoJson.toJSONString());
             writer.flush();
-          } catch (IOException e) {
+          } catch (IOException _) {
             DriverStationErrors.reportWarning(
                 "Failed to save updated auto file contents, please re-deploy code", false);
           }
         }
-      } catch (Exception e) {
+      } catch (Exception _) {
         // Ignore
       }
     }

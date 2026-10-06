@@ -52,6 +52,7 @@ dependencies {
     implementation "org.wpilib.wpiunits:wpiunits-java:$wpilibVersion"
     implementation "org.wpilib.hal:hal-java:$wpilibVersion"
     implementation "org.wpilib.commandsv2:commandsv2-java:$wpilibVersion"
+    implementation "org.wpilib:commandsv3-java:$wpilibVersion"
     implementation "org.ejml:ejml-simple:0.46.0"
     implementation "com.fasterxml.jackson.core:jackson-annotations:2.19.2"
     implementation "com.fasterxml.jackson.core:jackson-core:2.19.2"
@@ -200,6 +201,13 @@ wrapper {
 test {
     useJUnitPlatform()
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+    // Commands v3 coroutines use the JDK's internal continuation classes
+    jvmArgs += [
+        '--add-opens',
+        'java.base/jdk.internal.vm=ALL-UNNAMED',
+        '--add-opens',
+        'java.base/java.lang=ALL-UNNAMED',
+    ]
     testLogging {
         events "failed"
         exceptionFormat = "full"
