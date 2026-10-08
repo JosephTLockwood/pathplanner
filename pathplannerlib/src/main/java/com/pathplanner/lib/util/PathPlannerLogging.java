@@ -88,4 +88,16 @@ public class PathPlannerLogging {
       }
     }
   }
+
+  /**
+   * Log the poses of the active path. This is used by paths that are not a {@link PathPlannerPath},
+   * such as a 2027 path graph.
+   *
+   * @param poses The poses along the active path, or an empty list if no path is active
+   */
+  public static void logActivePathPoses(List<Pose2d> poses) {
+    if (logActivePath != null) {
+      logActivePath.accept(poses);
+    }
+  }
 }

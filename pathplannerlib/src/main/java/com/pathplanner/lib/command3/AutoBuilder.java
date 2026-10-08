@@ -8,6 +8,8 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PathFollowingController;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.path2.CenterFieldFlipping;
+import com.pathplanner.lib.path2.PathGraph;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.FlippingUtil;
 import com.pathplanner.lib.util.PPLibTesting;
@@ -76,6 +78,18 @@ public class AutoBuilder {
         shouldFlipPath,
         robotConfig.isHolonomic);
 
+    if (robotConfig.isHolonomic) {
+      globals.pathGraphCommandBuilder =
+          path ->
+              new FollowPathGraphCommand(
+                  path,
+                  poseSupplier,
+                  robotRelativeSpeedsSupplier,
+                  output,
+                  robotConfig,
+                  shouldFlipPath,
+                  driveRequirements);
+    }
     globals.pathfindToPoseCommandBuilder =
         (pose, constraints, goalEndVel) ->
             new PathfindingCommand(
@@ -162,6 +176,7 @@ public class AutoBuilder {
     }
 
     globals.pathFollowingCommandBuilder = pathFollowingCommandBuilder;
+    globals.pathGraphCommandBuilder = null;
     globals.poseSupplier = poseSupplier;
     globals.resetPose = resetPose;
     globals.configured = true;
@@ -248,6 +263,29 @@ public class AutoBuilder {
     }
 
     return globals.pathFollowingCommandBuilder.apply(path);
+  }
+
+  /**
+   * Builds a command to follow a path drawn in the PathPlanner 2027 app. The command signals the
+   * path's events along the way.
+   *
+   * @param path the path to follow, loaded with {@link PathGraph#fromPathFile(String)}
+   * @return a path following command for the given path
+   * @throws AutoBuilderException if the AutoBuilder has not been configured with {@link
+   *     #configure}, or was configured for a drivetrain that is not holonomic
+   */
+  public static Command followPath(PathGraph path) {
+    if (!isConfigured()) {
+      throw new AutoBuilderException(
+          "Auto builder was used to build a path following command before being configured");
+    }
+    if (globals.pathGraphCommandBuilder == null) {
+      throw new AutoBuilderException(
+          "Following a 2027 path needs AutoBuilder.configure with a holonomic drivetrain. "
+              + "configureCustom cannot follow 2027 paths.");
+    }
+
+    return globals.pathGraphCommandBuilder.apply(path);
   }
 
   /**
@@ -504,6 +542,29 @@ public class AutoBuilder {
         .named("Reset Odometry");
   }
 
+  /**
+   * Create a command to reset the robot's odometry to a pose measured from the center of the field,
+   * as 2027 autos save their starting pose. The pose is flipped with {@link CenterFieldFlipping}
+   * when paths should be flipped.
+   *
+   * @param pose The pose to reset to, measured from the center of the field
+   * @return Command to reset the robot's odometry
+   */
+  static Command resetOdomFromFieldCenter(Pose2d pose) {
+    if (!AutoBuilder.isConfigured()) {
+      throw new RuntimeException("AutoBuilder was not configured before use");
+    }
+
+    BooleanSupplier shouldFlip = globals.shouldFlipPath;
+    Consumer<Pose2d> resetPose = globals.resetPose;
+
+    return Command.noRequirements(
+            _ ->
+                resetPose.accept(
+                    shouldFlip.getAsBoolean() ? CenterFieldFlipping.flipPose(pose) : pose))
+        .named("Reset Odometry");
+  }
+
   @FunctionalInterface
   private interface PathfindToPoseBuilder {
     Command build(Pose2d pose, PathConstraints constraints, double goalEndVelocity);
@@ -517,6 +578,7 @@ public class AutoBuilder {
     boolean configured = false;
     Supplier<Pose2d> poseSupplier;
     Function<PathPlannerPath, Command> pathFollowingCommandBuilder;
+    Function<PathGraph, Command> pathGraphCommandBuilder;
     Consumer<Pose2d> resetPose;
     BooleanSupplier shouldFlipPath;
     boolean isHolonomic;

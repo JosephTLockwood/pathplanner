@@ -1,0 +1,70 @@
+{
+  "version": "2027.1",
+  "nodes": [
+    {
+      "id": "8a8d5360-d625-4d09-b3f6-d0ba13b4b2eb",
+      "waypoint": {
+        "type": "pose",
+        "events": [],
+        "position": {
+          "x": 7.25,
+          "y": 2.0
+        },
+        "useDefaultConstraints": true,
+        "maxVelocity": 2.0,
+        "maxAngularVelocity": 270.0,
+        "maxAngularAcceleration": 360.0,
+        "rotation": {
+          "value": 3.141592653589793
+        }
+      },
+      "editorPosition": {
+        "x": 100.0,
+        "y": 80.0
+      },
+      "endTolerance": {
+        "distanceMeters": 0.1,
+        "angleDegrees": 2.0
+      }
+    },
+    {
+      "id": "8bb06314-8bbc-421a-9812-0296e28ae6da",
+      "waypoint": {
+        "type": "pose",
+        "events": [],
+        "position": {
+          "x": 5.25,
+          "y": 2.0
+        },
+        "useDefaultConstraints": true,
+        "maxVelocity": 2.0,
+        "maxAngularVelocity": 270.0,
+        "maxAngularAcceleration": 360.0,
+        "rotation": {
+          "value": -2.356194490192345
+        }
+      },
+      "editorPosition": {
+        "x": 100.0,
+        "y": 600.0
+      },
+      "endTolerance": {
+        "distanceMeters": 0.1,
+        "angleDegrees": 2.0
+      }
+    }
+  ],
+  "branches": [
+    {
+      "id": "38c756de-0f8e-42d2-8fc2-537fddb191b2",
+      "sourceId": "8a8d5360-d625-4d09-b3f6-d0ba13b4b2eb",
+      "targetId": "8bb06314-8bbc-421a-9812-0296e28ae6da",
+      "transition": {
+        "type": "distance",
+        "distanceMeters": 0.25
+      },
+      "events": []
+    }
+  ],
+  "folder": null
+}

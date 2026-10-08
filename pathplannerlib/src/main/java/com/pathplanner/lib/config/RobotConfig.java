@@ -281,7 +281,6 @@ public class RobotConfig {
     double MOI = ((Number) json.get("robotMOI")).doubleValue();
     double wheelRadius = ((Number) json.get("driveWheelRadius")).doubleValue();
     double gearing = ((Number) json.get("driveGearing")).doubleValue();
-    double maxDriveSpeed = ((Number) json.get("maxDriveSpeed")).doubleValue();
     double wheelCOF = ((Number) json.get("wheelCOF")).doubleValue();
     String driveMotor = (String) json.get("driveMotorType");
     double driveCurrentLimit = ((Number) json.get("driveCurrentLimit")).doubleValue();
@@ -299,6 +298,20 @@ public class RobotConfig {
           default -> throw new IllegalArgumentException("Invalid motor type: " + driveMotor);
         };
     gearbox = gearbox.withReduction(gearing);
+    double maxDriveSpeed;
+    if (json.get("maxDriveSpeed") != null) {
+      maxDriveSpeed = ((Number) json.get("maxDriveSpeed")).doubleValue();
+    } else {
+      // The 2027 app no longer saves a max drive speed. It calculates the speed at which the drive
+      // motor's torque at 12 volts balances the friction torque, and so does this.
+      double frictionTorqueCurrent =
+          json.get("frictionTorqueCurrent") != null
+              ? ((Number) json.get("frictionTorqueCurrent")).doubleValue() * numMotors
+              : 0.0;
+      maxDriveSpeed =
+          Math.max(gearbox.getVelocity(gearbox.getTorque(frictionTorqueCurrent), 12.0), 0.0)
+              * wheelRadius;
+    }
     ModuleConfig moduleConfig =
         new ModuleConfig(
             wheelRadius, maxDriveSpeed, wheelCOF, gearbox, driveCurrentLimit, numMotors);

@@ -5,6 +5,7 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.events.Event;
 import com.pathplanner.lib.events.OneShotTriggerEvent;
 import com.pathplanner.lib.events.ScheduleCommandEvent;
+import com.pathplanner.lib.path2.FileVersion;
 import com.pathplanner.lib.trajectory.PathPlannerTrajectory;
 import com.pathplanner.lib.trajectory.PathPlannerTrajectoryState;
 import com.pathplanner.lib.util.*;
@@ -318,6 +319,12 @@ public class PathPlannerPath {
       JSONObject json = (JSONObject) new JSONParser().parse(fileContent);
       String version = json.get("version").toString();
       String[] versions = version.split("\\.");
+      if (FileVersion.isGraphFormat(version)) {
+        throw new FileVersionException(
+            version,
+            "2025.X' (this path was saved by the 2027 app; load it with PathGraph.fromPathFile",
+            pathName + ".path");
+      }
       if (!versions[0].equals("2025")) {
         throw new FileVersionException(version, "2025.X", pathName + ".path");
       }

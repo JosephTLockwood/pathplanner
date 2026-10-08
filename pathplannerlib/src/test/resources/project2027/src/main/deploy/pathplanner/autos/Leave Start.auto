@@ -1,0 +1,25 @@
+{
+  "version": "2027.1",
+  "nodes": [
+    {
+      "id": "93190c1e-42a8-40bc-9d3e-f83d37fd9fc2",
+      "type": "path",
+      "pathName": "Leave Start",
+      "events": [],
+      "editorPosition": {
+        "x": 266.16666675,
+        "y": 347.8333333333333
+      }
+    }
+  ],
+  "branches": [],
+  "startingPose": {
+    "position": {
+      "x": 7.25,
+      "y": 2.0
+    },
+    "rotation": 3.141592653589793
+  },
+  "startingPoseInitialized": true,
+  "folder": null
+}

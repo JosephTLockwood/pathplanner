@@ -6,15 +6,24 @@ import static org.wpilib.units.Units.Seconds;
 import com.pathplanner.lib.auto.AutoBuilderException;
 import com.pathplanner.lib.auto.AutoFile;
 import com.pathplanner.lib.auto.AutoTriggerConditions;
+import com.pathplanner.lib.auto.NamedConditions;
 import com.pathplanner.lib.events.EventConditions;
 import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.path2.AutoGraph;
+import com.pathplanner.lib.path2.CenterFieldFlipping;
+import com.pathplanner.lib.path2.FileVersion;
+import com.pathplanner.lib.path2.PathGraph;
 import com.pathplanner.lib.util.FileVersionException;
 import com.pathplanner.lib.util.PPLibTelemetry;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 import org.wpilib.command3.Command;
@@ -93,7 +102,11 @@ public class PathPlannerAuto implements Command {
     this.name = autoName;
 
     try {
-      initFromAutoFile(AutoFile.fromFile(autoName), mirror);
+      if (AutoGraph.isGraphFile(autoName)) {
+        initFromAutoGraph(AutoGraph.fromFile(autoName), mirror);
+      } else {
+        initFromAutoFile(AutoFile.fromFile(autoName), mirror);
+      }
     } catch (FileNotFoundException e) {
       DriverStationErrors.reportError(e.getMessage(), e.getStackTrace());
       autoCommand = CommandUtil.none();
@@ -188,10 +201,11 @@ public class PathPlannerAuto implements Command {
   }
 
   /**
-   * Get the starting pose of this auto, relative to a blue alliance origin. If there are no paths
-   * in this auto, the starting pose will be null.
+   * Get the starting pose of this auto. For a 2025 auto, this is relative to a blue alliance
+   * origin, and null if there are no paths in the auto. For a 2027 auto, this is the starting pose
+   * set in the app, measured from the center of the field.
    *
-   * @return The blue alliance starting pose
+   * @return The starting pose
    */
   public Pose2d getStartingPose() {
     return startingPose;
@@ -481,7 +495,11 @@ public class PathPlannerAuto implements Command {
    */
   public void hotReload(JSONObject autoJson) {
     try {
-      initFromAutoFile(AutoFile.fromJson(autoJson), false);
+      if (FileVersion.isGraphFormat(String.valueOf(autoJson.get("version")))) {
+        initFromAutoGraph(AutoGraph.fromJson(name, autoJson), false);
+      } else {
+        initFromAutoFile(AutoFile.fromJson(autoJson), false);
+      }
     } catch (Exception e) {
       DriverStationErrors.reportError("Failed to load path during hot reload", e.getStackTrace());
     }
@@ -497,6 +515,115 @@ public class PathPlannerAuto implements Command {
     } else {
       this.autoCommand = command;
     }
+  }
+
+  /**
+   * Build the command for a 2027 auto. The auto resets odometry to its starting pose if the app set
+   * one, then runs each step and follows the branches out of it. See {@link AutoGraph}.
+   */
+  private void initFromAutoGraph(AutoGraph auto, boolean mirror)
+      throws IOException, ParseException {
+    Map<String, Command> stepCommands = new HashMap<>();
+    Set<Mechanism> requirements = new HashSet<>();
+    for (AutoGraph.Node node : auto.nodes()) {
+      Command command;
+      if (!node.isPath()) {
+        command = NamedCommands.getCommand(node.commandName());
+      } else if (node.pathName() == null || node.pathName().isBlank()) {
+        DriverStationErrors.reportWarning(
+            "Auto " + name + " has a path step with no path selected", false);
+        command = CommandUtil.none();
+      } else {
+        PathGraph path = PathGraph.fromPathFile(node.pathName());
+        command = AutoBuilder.followPath(mirror ? path.mirror() : path);
+      }
+      stepCommands.put(node.id(), command);
+      requirements.addAll(command.requirements());
+    }
+
+    Map<String, BooleanSupplier> conditions = new HashMap<>();
+    for (AutoGraph.Branch branch : auto.branches()) {
+      if (branch.isCondition()) {
+        conditions.computeIfAbsent(
+            String.valueOf(branch.conditionName()),
+            _ -> NamedConditions.getCondition(branch.conditionName()));
+      }
+    }
+
+    this.startingPose =
+        mirror ? CenterFieldFlipping.mirrorPose(auto.startingPose()) : auto.startingPose();
+    Command resetOdom =
+        auto.startingPoseInitialized()
+            ? AutoBuilder.resetOdomFromFieldCenter(this.startingPose)
+            : null;
+
+    Consumer<Coroutine> body =
+        coroutine -> {
+          if (resetOdom != null) {
+            coroutine.await(resetOdom);
+          }
+          runAutoGraph(coroutine, auto, stepCommands, conditions);
+        };
+    this.autoCommand =
+        requirements.isEmpty()
+            ? Command.noRequirements(body).named(name)
+            : Command.requiring(requirements).executing(body).named(name);
+  }
+
+  private static void runAutoGraph(
+      Coroutine coroutine,
+      AutoGraph auto,
+      Map<String, Command> stepCommands,
+      Map<String, BooleanSupplier> conditions) {
+    AutoGraph.Node node = auto.getStartNode();
+    while (node != null) {
+      node.events().forEach(EventConditions::pulseEvent);
+      Command command = stepCommands.get(node.id());
+      List<AutoGraph.Branch> outgoing = auto.getOutgoingBranches(node.id());
+      boolean hasConditionBranch = outgoing.stream().anyMatch(AutoGraph.Branch::isCondition);
+
+      if (coroutine.fork(command).failed()) {
+        DriverStationErrors.reportError(
+            "PathPlanner auto could not start " + command.name() + ", so the auto stopped", false);
+        return;
+      }
+
+      AutoGraph.Branch next;
+      while (true) {
+        next = firstTrueCondition(outgoing, conditions);
+        boolean running = coroutine.scheduler().isScheduledOrRunning(command);
+        if (next != null) {
+          if (running) {
+            coroutine.scheduler().cancel(command);
+          }
+          break;
+        }
+        if (!running) {
+          next = outgoing.stream().filter(b -> !b.isCondition()).findFirst().orElse(null);
+          if (next != null || !hasConditionBranch) {
+            break;
+          }
+        }
+        coroutine.yield();
+      }
+
+      if (next == null) {
+        return;
+      }
+      next.events().forEach(EventConditions::pulseEvent);
+      node = auto.getNode(next.targetId());
+    }
+  }
+
+  private static AutoGraph.Branch firstTrueCondition(
+      List<AutoGraph.Branch> branches, Map<String, BooleanSupplier> conditions) {
+    for (AutoGraph.Branch branch : branches) {
+      if (branch.isCondition()
+          && conditions.get(String.valueOf(branch.conditionName())).getAsBoolean()) {
+        return branch;
+      }
+    }
+    return null;
   }
 
   private void stopRunning() {

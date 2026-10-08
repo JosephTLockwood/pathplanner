@@ -1,0 +1,110 @@
+{
+  "version": "2027.1",
+  "nodes": [
+    {
+      "id": "8ab55723-4afd-4598-a3f5-8d8b50218a89",
+      "waypoint": {
+        "type": "pose",
+        "events": [],
+        "position": {
+          "x": -6.0,
+          "y": 3.0
+        },
+        "useDefaultConstraints": true,
+        "maxVelocity": 2.0,
+        "maxAngularVelocity": 270.0,
+        "maxAngularAcceleration": 360.0,
+        "rotation": {
+          "value": 0
+        }
+      },
+      "editorPosition": {
+        "x": 100.0,
+        "y": 80.0
+      },
+      "endTolerance": {
+        "distanceMeters": 0.1,
+        "angleDegrees": 2.0
+      }
+    },
+    {
+      "id": "8ab8b387-3312-4bef-a1e6-866801aff905",
+      "waypoint": {
+        "type": "pose",
+        "events": [
+          "Score"
+        ],
+        "position": {
+          "x": -3.0,
+          "y": 1.5
+        },
+        "useDefaultConstraints": true,
+        "maxVelocity": 2.0,
+        "maxAngularVelocity": 270.0,
+        "maxAngularAcceleration": 360.0,
+        "rotation": {
+          "value": 1.5707963267948966
+        }
+      },
+      "editorPosition": {
+        "x": 100.0,
+        "y": 600.0
+      },
+      "endTolerance": {
+        "distanceMeters": 0.1,
+        "angleDegrees": 2.0
+      }
+    },
+    {
+      "id": "036ac8ac-9c93-42ff-89da-0a971b8b4816",
+      "waypoint": {
+        "type": "translation",
+        "events": [],
+        "position": {
+          "x": -2.0,
+          "y": 0.0
+        },
+        "useDefaultConstraints": true,
+        "maxVelocity": 2.0,
+        "maxAngularVelocity": 270.0,
+        "maxAngularAcceleration": 360.0
+      },
+      "editorPosition": {
+        "x": 318.73400343829985,
+        "y": 778.7221206581355
+      },
+      "endTolerance": {
+        "distanceMeters": 0.1,
+        "angleDegrees": 2.0
+      }
+    }
+  ],
+  "branches": [
+    {
+      "id": "301db361-ff27-4194-9c0b-fc81956d9b56",
+      "sourceId": "8ab55723-4afd-4598-a3f5-8d8b50218a89",
+      "targetId": "8ab8b387-3312-4bef-a1e6-866801aff905",
+      "transition": {
+        "type": "distance",
+        "distanceMeters": 0.25
+      },
+      "events": [
+        {
+          "name": "Intake",
+          "position": 0.5
+        }
+      ]
+    },
+    {
+      "id": "a7855fc4-acf7-4a9a-bf29-ea2485f0344b",
+      "sourceId": "8ab8b387-3312-4bef-a1e6-866801aff905",
+      "targetId": "036ac8ac-9c93-42ff-89da-0a971b8b4816",
+      "transition": {
+        "type": "distance",
+        "distanceMeters": 0.5
+      },
+      "events": []
+    }
+  ],
+  "folder": null
+}

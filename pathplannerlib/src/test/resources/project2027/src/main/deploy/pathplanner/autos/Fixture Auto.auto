@@ -1,0 +1,47 @@
+{
+  "version": "2027.1",
+  "nodes": [
+    {
+      "id": "c5405c50-a0db-4d2b-a1bd-35d4ffc962a1",
+      "type": "path",
+      "pathName": "Straight",
+      "events": [
+        "Spinup"
+      ],
+      "editorPosition": {
+        "x": 266.16666675,
+        "y": 347.8333333333333
+      }
+    },
+    {
+      "id": "15c7a756-bd52-4ad3-844c-7e82d9ea1f54",
+      "type": "external",
+      "commandName": "PrintHello",
+      "events": [],
+      "editorPosition": {
+        "x": 266.33333316666676,
+        "y": 622.1666666666666
+      }
+    }
+  ],
+  "branches": [
+    {
+      "id": "de42ad4c-9354-442d-a77d-a89e0bf74129",
+      "sourceId": "c5405c50-a0db-4d2b-a1bd-35d4ffc962a1",
+      "targetId": "15c7a756-bd52-4ad3-844c-7e82d9ea1f54",
+      "transition": {
+        "type": "finished"
+      },
+      "events": []
+    }
+  ],
+  "startingPose": {
+    "position": {
+      "x": -6.0,
+      "y": 3.0
+    },
+    "rotation": 0
+  },
+  "startingPoseInitialized": true,
+  "folder": null
+}
