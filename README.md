@@ -26,11 +26,19 @@ It uses the same UUID as the official PathplannerLib vendordep, so it replaces i
     `EventTrigger`, `PathPlannerAuto`, ...). `AutoBuilder.configure(...)` takes your drive
     `Mechanism`s as the last argument.
   - Commands v2: the usual `com.pathplanner.lib.auto` / `com.pathplanner.lib.commands` API.
-- Paths and autos must use the `2025.0` file format (the GUI's classic path and auto editors).
-  Files from the new path editor (`2027.1` format) can't be loaded by this build yet.
+- From `-2`, paths and autos saved by the new editor (`2027.1` format) load and run, and `2025.0`
+  files still do. `PathPlannerAuto` and `AutoBuilder.buildAutoChooser` take either. Load a
+  `2027.1` path with `PathGraph.fromPathFile` and follow it with `AutoBuilder.followPath`.
+  - `2027.1` poses are measured from the center of the field, +X away from the red alliance wall,
+    which is how the new editor draws them. Robot odometry must use the same coordinates.
+  - Condition branches read `NamedConditions.registerCondition(name, condition)`. External command
+    steps read `NamedCommands`.
+  - Commands v3 only. Commands v2 still runs `2025.0` files only.
+- `-1` reads `2025.0` files only.
 
 ## Versions
 
 | Version | Built from |
 | --- | --- |
+| `2027.0.0-alpha-7-commandsv3-2` | `path2-2027-1` @ `eb7989ec` |
 | `2027.0.0-alpha-7-commandsv3-1` | `new-path-2027-commands-v3` @ `8f7af5fb` |
