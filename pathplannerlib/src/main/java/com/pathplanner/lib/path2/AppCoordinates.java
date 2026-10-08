@@ -8,6 +8,7 @@ import java.io.IOException;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Translation2d;
@@ -76,14 +77,16 @@ public final class AppCoordinates {
   }
 
   /**
-   * Check that the field size used for the conversion matches the project's navgrid.json. Does
-   * nothing if the project has no navgrid.json.
+   * Check that the field size used for the conversion matches the project's navgrid.json. The 2027
+   * app writes a navgrid.json whenever it opens a project. If there is none, or it has no field
+   * size, this reports a warning naming the size that will be used.
    *
-   * @throws IllegalStateException if the sizes disagree
+   * @throws IllegalStateException if the sizes disagree, or navgrid.json cannot be read
    */
   public static void checkFieldSize() {
     File navGrid = new File(Filesystem.getDeployDirectory(), "pathplanner/navgrid.json");
     if (!navGrid.exists()) {
+      warnUnchecked("there is no pathplanner/navgrid.json");
       return;
     }
 
@@ -94,6 +97,7 @@ public final class AppCoordinates {
       throw new IllegalStateException("Could not read pathplanner/navgrid.json", e);
     }
     if (fieldSize == null) {
+      warnUnchecked("pathplanner/navgrid.json has no field_size");
       return;
     }
 
@@ -110,5 +114,15 @@ public final class AppCoordinates {
                   + "Navigation Grid page.",
               length, width, FlippingUtil.fieldSizeX, FlippingUtil.fieldSizeY));
     }
+  }
+
+  private static void warnUnchecked(String reason) {
+    DriverStationErrors.reportWarning(
+        String.format(
+            "PathPlanner could not check the field size because %s. 2027 paths are converted "
+                + "to the blue alliance origin assuming a %.3f x %.3f m field "
+                + "(FlippingUtil.fieldSizeX/fieldSizeY).",
+            reason, FlippingUtil.fieldSizeX, FlippingUtil.fieldSizeY),
+        false);
   }
 }
