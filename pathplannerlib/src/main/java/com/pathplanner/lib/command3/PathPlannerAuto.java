@@ -10,8 +10,8 @@ import com.pathplanner.lib.auto.NamedConditions;
 import com.pathplanner.lib.events.EventConditions;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.path2.AutoGraph;
-import com.pathplanner.lib.path2.CenterFieldFlipping;
 import com.pathplanner.lib.path2.FileVersion;
+import com.pathplanner.lib.path2.GraphWaypoint;
 import com.pathplanner.lib.path2.PathGraph;
 import com.pathplanner.lib.util.FileVersionException;
 import com.pathplanner.lib.util.PPLibTelemetry;
@@ -118,7 +118,7 @@ public class PathPlannerAuto implements Command {
       DriverStationErrors.reportError(
           "Failed to parse JSON in file required by auto: " + autoName, e.getStackTrace());
       autoCommand = CommandUtil.none();
-    } catch (FileVersionException e) {
+    } catch (FileVersionException | IllegalStateException e) {
       DriverStationErrors.reportError(
           "Failed to load auto: " + autoName + ". " + e.getMessage(), e.getStackTrace());
       autoCommand = CommandUtil.none();
@@ -201,11 +201,11 @@ public class PathPlannerAuto implements Command {
   }
 
   /**
-   * Get the starting pose of this auto. For a 2025 auto, this is relative to a blue alliance
-   * origin, and null if there are no paths in the auto. For a 2027 auto, this is the starting pose
-   * set in the app, measured from the center of the field.
+   * Get the starting pose of this auto, relative to a blue alliance origin. For a 2025 auto, this
+   * is the start of its first path, or null if there are no paths in the auto. For a 2027 auto,
+   * this is the starting pose set in the app.
    *
-   * @return The starting pose
+   * @return The blue alliance starting pose
    */
   public Pose2d getStartingPose() {
     return startingPose;
@@ -551,11 +551,9 @@ public class PathPlannerAuto implements Command {
     }
 
     this.startingPose =
-        mirror ? CenterFieldFlipping.mirrorPose(auto.startingPose()) : auto.startingPose();
+        mirror ? GraphWaypoint.mirrorPose(auto.startingPose()) : auto.startingPose();
     Command resetOdom =
-        auto.startingPoseInitialized()
-            ? AutoBuilder.resetOdomFromFieldCenter(this.startingPose)
-            : null;
+        auto.startingPoseInitialized() ? AutoBuilder.resetOdom(this.startingPose) : null;
 
     Consumer<Coroutine> body =
         coroutine -> {

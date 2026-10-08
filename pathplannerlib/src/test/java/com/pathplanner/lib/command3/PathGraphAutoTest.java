@@ -8,6 +8,7 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.path2.FixtureProject;
 import com.pathplanner.lib.path2.PathGraph;
+import com.pathplanner.lib.util.FlippingUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -80,17 +81,17 @@ class PathGraphAutoTest extends CommandsV3TestBase {
     new EventTrigger(scheduler, "Spinup").onTrue(counter("Spinup", spinup));
 
     var auto = new PathPlannerAuto(scheduler, "Fixture Auto", false);
-    assertEquals(new Pose2d(-6.0, 3.0, Rotation2d.ZERO), auto.getStartingPose());
+    assertEquals(new Pose2d(14.27, 1.035, Rotation2d.PI), auto.getStartingPose());
     assertTrue(auto.requirements().contains(drive));
 
     robotPose = new Pose2d(1.0, 1.0, Rotation2d.CCW_90DEG);
     scheduler.schedule(auto);
     int loops = stepUntil(() -> !isRunning(auto), 500);
 
-    assertEquals(List.of(new Pose2d(-6.0, 3.0, Rotation2d.ZERO)), resets);
+    assertEquals(List.of(new Pose2d(14.27, 1.035, Rotation2d.PI)), resets);
     assertEquals(1, hello.get());
     assertEquals(1, spinup.get());
-    assertEquals(0.0, robotPose.getTranslation().getDistance(new Translation2d(-4.0, 2.0)), 0.1);
+    assertEquals(0.0, robotPose.getTranslation().getDistance(new Translation2d(12.27, 2.035)), 0.1);
     assertTrue(isZero(outputs.getLast()), "A finished path should send zero speeds");
     // The app previews this path at 1.36 s. The auto adds the reset and command loops.
     assertEquals(FixtureProject.STRAIGHT_PREVIEW_SECONDS, loops * LOOP_PERIOD, 0.1);
@@ -103,16 +104,16 @@ class PathGraphAutoTest extends CommandsV3TestBase {
     stepUntil(() -> !isRunning(auto), 500);
 
     assertEquals(1, resets.size());
-    assertEquals(new Translation2d(7.25, 2.0), resets.get(0).getTranslation());
-    assertEquals(0.0, robotPose.getTranslation().getDistance(new Translation2d(5.25, 2.0)), 0.1);
+    assertEquals(new Pose2d(1.02, 2.035, Rotation2d.ZERO), resets.get(0));
+    assertEquals(0.0, robotPose.getTranslation().getDistance(new Translation2d(3.02, 2.035)), 0.1);
     assertEquals(
-        0.0, robotPose.getRotation().minus(Rotation2d.fromDegrees(-135.0)).getDegrees(), 2.0);
+        0.0, robotPose.getRotation().minus(Rotation2d.fromDegrees(45.0)).getDegrees(), 2.0);
   }
 
   @Test
   void canceledPathSendsNoZero() throws Exception {
     Command follow = AutoBuilder.followPath(PathGraph.fromPathFile("Leave Start"));
-    robotPose = new Pose2d(7.25, 2.0, Rotation2d.PI);
+    robotPose = new Pose2d(1.02, 2.035, Rotation2d.ZERO);
     scheduler.schedule(follow);
     stepFor(0.4);
     int sent = outputs.size();
@@ -130,8 +131,15 @@ class PathGraphAutoTest extends CommandsV3TestBase {
     scheduler.schedule(auto);
     stepUntil(() -> !isRunning(auto), 500);
 
-    assertEquals(new Translation2d(-7.25, -2.0), resets.get(0).getTranslation());
-    assertEquals(0.0, robotPose.getTranslation().getDistance(new Translation2d(-5.25, -2.0)), 0.1);
+    assertEquals(
+        FlippingUtil.flipFieldPose(new Pose2d(1.02, 2.035, Rotation2d.ZERO)), resets.get(0));
+    assertEquals(new Pose2d(15.52, 6.035, Rotation2d.PI), resets.get(0));
+    assertEquals(
+        0.0,
+        robotPose
+            .getTranslation()
+            .getDistance(FlippingUtil.flipFieldPosition(new Translation2d(3.02, 2.035))),
+        0.1);
   }
 
   @Test

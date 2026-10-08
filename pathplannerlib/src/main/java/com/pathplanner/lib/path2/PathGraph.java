@@ -28,8 +28,9 @@ import org.wpilib.system.Filesystem;
  * it reaches a node with no outgoing branch. Each branch says when the robot moves on to the next
  * waypoint: either a fixed distance before reaching it, or when a named condition becomes true.
  *
- * <p>Positions are measured from the center of the field, with +X pointing away from the red
- * alliance wall. This is the coordinate system the 2027 app draws in.
+ * <p>Positions and headings are measured from WPILib's blue alliance origin, like every other pose
+ * in PathPlannerLib. The app saves them measured from the center of the field, and they are
+ * converted when the file is loaded. See {@link AppCoordinates}.
  */
 public class PathGraph {
   private static final Map<String, PathGraph> cache = new HashMap<>();
@@ -95,6 +96,8 @@ public class PathGraph {
    * @throws IOException if the file cannot be read
    * @throws ParseException if the JSON cannot be parsed
    * @throws FileVersionException if the file is not a 2027.1 path
+   * @throws IllegalStateException if FlippingUtil's field size disagrees with the project's
+   *     navgrid.json. See {@link AppCoordinates}.
    */
   public static PathGraph fromPathFile(String pathName) throws IOException, ParseException {
     if (cache.containsKey(pathName)) {
@@ -108,6 +111,7 @@ public class PathGraph {
           version, FileVersion.GRAPH_FORMAT_VERSION + " or newer", pathName + ".path");
     }
 
+    AppCoordinates.checkFieldSize();
     PathGraph path = fromJson(pathName, json);
     cache.put(pathName, path);
     return path;
@@ -131,7 +135,9 @@ public class PathGraph {
   }
 
   /**
-   * Create a path graph from the JSON of a 2027.1 path file
+   * Create a path graph from the JSON of a 2027.1 path file. Poses are converted from the app's
+   * coordinates to the blue alliance origin with {@link AppCoordinates}, using the current
+   * FlippingUtil field size.
    *
    * @param name The name of the path
    * @param json The JSON object of the path file
@@ -197,7 +203,7 @@ public class PathGraph {
   }
 
   /**
-   * Flip this path to the other alliance. See {@link CenterFieldFlipping}.
+   * Flip this path to the other alliance with {@link com.pathplanner.lib.util.FlippingUtil}
    *
    * @return The flipped path
    */
@@ -293,7 +299,11 @@ public class PathGraph {
 
     private static GraphWaypoint waypointFromJson(JSONObject json) {
       String type = (String) json.get("type");
-      Translation2d position = translation((JSONObject) json.get("position"));
+      // The app saves poses from the center of the field. Convert them to the blue origin here,
+      // once, so nothing after loading sees the app's coordinates. A rotation offset is relative to
+      // the direction of the target, so it does not change.
+      Translation2d position =
+          AppCoordinates.toBlueOrigin(translation((JSONObject) json.get("position")));
       Rotation2d rotation = null;
       Translation2d target = null;
       Rotation2d offset = Rotation2d.ZERO;
@@ -302,11 +312,14 @@ public class PathGraph {
         case "pose" -> {
           // Pose waypoint headings are saved in radians
           JSONObject rotationJson = (JSONObject) json.get("rotation");
-          rotation = Rotation2d.fromRadians(((Number) rotationJson.get("value")).doubleValue());
+          rotation =
+              AppCoordinates.toBlueOrigin(
+                  Rotation2d.fromRadians(((Number) rotationJson.get("value")).doubleValue()));
         }
         case "translation" -> {}
         case "pointTowards" -> {
-          target = translation((JSONObject) json.get("targetPosition"));
+          target =
+              AppCoordinates.toBlueOrigin(translation((JSONObject) json.get("targetPosition")));
           // The point towards offset is saved in degrees
           offset = Rotation2d.fromDegrees(number(json, "rotationOffset", 0.0));
           unprofiled = json.get("unprofiled") != null && (boolean) json.get("unprofiled");

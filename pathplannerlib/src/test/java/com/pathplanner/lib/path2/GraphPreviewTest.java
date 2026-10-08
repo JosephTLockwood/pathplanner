@@ -3,6 +3,7 @@ package com.pathplanner.lib.path2;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.pathplanner.lib.config.RobotConfig;
+import com.pathplanner.lib.util.FlippingUtil;
 import com.pathplanner.lib.util.PPLibTesting;
 import java.util.ArrayList;
 import java.util.List;
@@ -122,7 +123,7 @@ class GraphPreviewTest {
     Run run = follow(path);
     assertEquals(FixtureProject.LEAVE_START_PREVIEW_SECONDS, run.seconds(), TIME_TOLERANCE);
     PathGraph.Node end = lastNode(path);
-    assertEndsAt(end, run.finalPose(), Rotation2d.fromDegrees(-135.0));
+    assertEndsAt(end, run.finalPose(), Rotation2d.fromDegrees(45.0));
   }
 
   @Test
@@ -132,10 +133,11 @@ class GraphPreviewTest {
     assertEquals(FixtureProject.ROTATE_EVENTS_PREVIEW_SECONDS, run.seconds(), TIME_TOLERANCE);
 
     // The end waypoint is a translation waypoint, so the robot keeps the heading it had when it
-    // moved on from the 90 degree pose waypoint
+    // moved on from the pose waypoint, which the app saved at 90 degrees and is -90 in the blue
+    // alliance origin
     PathGraph.Node end = lastNode(path);
     assertEndsAt(end, run.finalPose(), null);
-    assertEquals(90.0, run.finalPose().getRotation().getDegrees(), 5.0);
+    assertEquals(-90.0, run.finalPose().getRotation().getDegrees(), 5.0);
   }
 
   @Test
@@ -146,8 +148,8 @@ class GraphPreviewTest {
 
     // "Intake" sits at 50% of the first branch: the app places it where the robot's distance to the
     // branch's target is half the branch length
-    Translation2d source = new Translation2d(-6.0, 3.0);
-    Translation2d target = new Translation2d(-3.0, 1.5);
+    Translation2d source = new Translation2d(14.27, 1.035);
+    Translation2d target = new Translation2d(11.27, 2.535);
     double branchLength = source.getDistance(target);
     double ratio = run.eventPoses().get(0).getTranslation().getDistance(target) / branchLength;
     assertTrue(ratio <= 0.5, "Intake fired early, at ratio " + ratio);
@@ -164,7 +166,7 @@ class GraphPreviewTest {
     Run blue = follow(path);
     Run red = follow(path.flip());
     assertEquals(blue.seconds(), red.seconds(), TIME_TOLERANCE);
-    assertEquals(-blue.finalPose().getX(), red.finalPose().getX(), 0.02);
-    assertEquals(-blue.finalPose().getY(), red.finalPose().getY(), 0.02);
+    Translation2d expected = FlippingUtil.flipFieldPosition(blue.finalPose().getTranslation());
+    assertEquals(0.0, red.finalPose().getTranslation().getDistance(expected), 0.02);
   }
 }

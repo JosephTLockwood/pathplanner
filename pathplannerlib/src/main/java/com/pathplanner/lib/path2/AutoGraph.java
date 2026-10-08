@@ -30,7 +30,9 @@ import org.wpilib.system.Filesystem;
  * @param name The name of the auto
  * @param nodes The steps of the auto, in file order
  * @param branches The branches of the auto, in file order
- * @param startingPose The pose the robot starts at, measured from the center of the field
+ * @param startingPose The pose the robot starts at, relative to the blue alliance origin. The app
+ *     saves it from the center of the field, and it is converted on load with {@link
+ *     AppCoordinates}.
  * @param startingPoseInitialized True if a starting pose has been set in the app. The app sets it
  *     from the first path as soon as one is added.
  */
@@ -78,6 +80,8 @@ public record AutoGraph(
    * @throws IOException if the file cannot be read
    * @throws ParseException if the JSON cannot be parsed
    * @throws FileVersionException if the file is not a 2027.1 auto
+   * @throws IllegalStateException if FlippingUtil's field size disagrees with the project's
+   *     navgrid.json. See {@link AppCoordinates}.
    */
   public static AutoGraph fromFile(String autoName) throws IOException, ParseException {
     JSONObject json = readJson(autoName);
@@ -86,6 +90,7 @@ public record AutoGraph(
       throw new FileVersionException(
           version, FileVersion.GRAPH_FORMAT_VERSION + " or newer", autoName + ".auto");
     }
+    AppCoordinates.checkFieldSize();
     return fromJson(autoName, json);
   }
 
@@ -119,11 +124,12 @@ public record AutoGraph(
     }
 
     JSONObject poseJson = (JSONObject) json.get("startingPose");
-    // The starting pose rotation is saved in radians
+    // The starting pose is saved from the center of the field, with its rotation in radians
     Pose2d startingPose =
-        new Pose2d(
-            PathGraph.translation((JSONObject) poseJson.get("position")),
-            Rotation2d.fromRadians(((Number) poseJson.get("rotation")).doubleValue()));
+        AppCoordinates.toBlueOrigin(
+            new Pose2d(
+                PathGraph.translation((JSONObject) poseJson.get("position")),
+                Rotation2d.fromRadians(((Number) poseJson.get("rotation")).doubleValue())));
     boolean initialized =
         json.get("startingPoseInitialized") != null
             && (boolean) json.get("startingPoseInitialized");

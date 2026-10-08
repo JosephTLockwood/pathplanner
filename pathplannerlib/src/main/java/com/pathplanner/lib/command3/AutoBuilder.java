@@ -8,7 +8,6 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PathFollowingController;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
-import com.pathplanner.lib.path2.CenterFieldFlipping;
 import com.pathplanner.lib.path2.PathGraph;
 import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.FlippingUtil;
@@ -539,29 +538,6 @@ public class AutoBuilder {
             _ ->
                 resetPose.accept(
                     shouldFlip.getAsBoolean() ? FlippingUtil.flipFieldPose(bluePose) : bluePose))
-        .named("Reset Odometry");
-  }
-
-  /**
-   * Create a command to reset the robot's odometry to a pose measured from the center of the field,
-   * as 2027 autos save their starting pose. The pose is flipped with {@link CenterFieldFlipping}
-   * when paths should be flipped.
-   *
-   * @param pose The pose to reset to, measured from the center of the field
-   * @return Command to reset the robot's odometry
-   */
-  static Command resetOdomFromFieldCenter(Pose2d pose) {
-    if (!AutoBuilder.isConfigured()) {
-      throw new RuntimeException("AutoBuilder was not configured before use");
-    }
-
-    BooleanSupplier shouldFlip = globals.shouldFlipPath;
-    Consumer<Pose2d> resetPose = globals.resetPose;
-
-    return Command.noRequirements(
-            _ ->
-                resetPose.accept(
-                    shouldFlip.getAsBoolean() ? CenterFieldFlipping.flipPose(pose) : pose))
         .named("Reset Odometry");
   }
 

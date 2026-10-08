@@ -1,6 +1,8 @@
 package com.pathplanner.lib.path2;
 
+import com.pathplanner.lib.util.FlippingUtil;
 import java.util.List;
+import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Translation2d;
 
@@ -17,9 +19,10 @@ import org.wpilib.math.geometry.Translation2d;
  *       {@code pointTowardsRotationOffset}, while driving to the waypoint.
  * </ul>
  *
- * @param position Field position of the waypoint, in meters
+ * @param position Field position of the waypoint from the blue alliance origin, in meters
  * @param rotation Heading of a pose waypoint, otherwise null
- * @param pointTowardsTarget Field position a point towards waypoint faces, otherwise null
+ * @param pointTowardsTarget Blue-origin field position a point towards waypoint faces, otherwise
+ *     null
  * @param pointTowardsRotationOffset Offset added to the heading towards the target
  * @param unprofiled Use an unprofiled heading controller while aiming at the target
  * @param maxVelocityMPS Max linear velocity while driving to this waypoint, in meters per second
@@ -51,9 +54,10 @@ public record GraphWaypoint(
   /**
    * Create a waypoint
    *
-   * @param position Field position of the waypoint, in meters
+   * @param position Field position of the waypoint from the blue alliance origin, in meters
    * @param rotation Heading of a pose waypoint, otherwise null
-   * @param pointTowardsTarget Field position a point towards waypoint faces, otherwise null
+   * @param pointTowardsTarget Blue-origin field position a point towards waypoint faces, otherwise
+   *     null
    * @param pointTowardsRotationOffset Offset added to the heading towards the target
    * @param unprofiled Use an unprofiled heading controller while aiming at the target
    * @param maxVelocityMPS Max linear velocity, in meters per second
@@ -97,11 +101,16 @@ public record GraphWaypoint(
    * @return The flipped waypoint
    */
   public GraphWaypoint flip() {
+    // Rotating the field keeps an offset relative to the target, and mirroring it reverses one
+    Rotation2d flippedOffset =
+        FlippingUtil.symmetryType == FlippingUtil.FieldSymmetry.kMirrored
+            ? pointTowardsRotationOffset.unaryMinus()
+            : pointTowardsRotationOffset;
     return new GraphWaypoint(
-        CenterFieldFlipping.flipPosition(position),
-        rotation == null ? null : CenterFieldFlipping.flipRotation(rotation),
-        pointTowardsTarget == null ? null : CenterFieldFlipping.flipPosition(pointTowardsTarget),
-        CenterFieldFlipping.flipRotationOffset(pointTowardsRotationOffset),
+        FlippingUtil.flipFieldPosition(position),
+        rotation == null ? null : FlippingUtil.flipFieldRotation(rotation),
+        pointTowardsTarget == null ? null : FlippingUtil.flipFieldPosition(pointTowardsTarget),
+        flippedOffset,
         unprofiled,
         maxVelocityMPS,
         maxAngularVelocityRadPerSec,
@@ -110,20 +119,35 @@ public record GraphWaypoint(
   }
 
   /**
-   * Mirror this waypoint to the other side of the current alliance
+   * Mirror this waypoint to the other side of the current alliance, as {@link
+   * com.pathplanner.lib.path.PathPlannerPath#mirrorPath()} does
    *
    * @return The mirrored waypoint
    */
   public GraphWaypoint mirror() {
     return new GraphWaypoint(
-        CenterFieldFlipping.mirrorPosition(position),
+        mirrorPosition(position),
         rotation == null ? null : rotation.unaryMinus(),
-        pointTowardsTarget == null ? null : CenterFieldFlipping.mirrorPosition(pointTowardsTarget),
+        pointTowardsTarget == null ? null : mirrorPosition(pointTowardsTarget),
         pointTowardsRotationOffset.unaryMinus(),
         unprofiled,
         maxVelocityMPS,
         maxAngularVelocityRadPerSec,
         maxAngularAccelerationRadPerSecSq,
         events);
+  }
+
+  /**
+   * Mirror a blue-origin field pose to the other side of the current alliance
+   *
+   * @param pose The pose to mirror
+   * @return The mirrored pose
+   */
+  public static Pose2d mirrorPose(Pose2d pose) {
+    return new Pose2d(mirrorPosition(pose.getTranslation()), pose.getRotation().unaryMinus());
+  }
+
+  private static Translation2d mirrorPosition(Translation2d position) {
+    return new Translation2d(position.getX(), FlippingUtil.fieldSizeY - position.getY());
   }
 }

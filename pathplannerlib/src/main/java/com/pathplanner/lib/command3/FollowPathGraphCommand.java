@@ -32,7 +32,7 @@ public class FollowPathGraphCommand implements Command {
    *
    * @param path The path to follow
    * @param poseSupplier Function that supplies the current field-relative pose of the robot,
-   *     measured from the center of the field as the 2027 app draws it
+   *     relative to the blue alliance origin, as for 2025 paths
    * @param speedsSupplier Function that supplies the current robot-relative chassis speeds
    * @param output Output function that accepts robot-relative ChassisSpeeds and feedforwards for
    *     each swerve module, in FL, FR, BL, BR order
