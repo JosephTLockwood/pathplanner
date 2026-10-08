@@ -29,8 +29,10 @@ It uses the same UUID as the official PathplannerLib vendordep, so it replaces i
 - From `-2`, paths and autos saved by the new editor (`2027.1` format) load and run, and `2025.0`
   files still do. `PathPlannerAuto` and `AutoBuilder.buildAutoChooser` take either. Load a
   `2027.1` path with `PathGraph.fromPathFile` and follow it with `AutoBuilder.followPath`.
-  - `2027.1` poses are measured from the center of the field, +X away from the red alliance wall,
-    which is how the new editor draws them. Robot odometry must use the same coordinates.
+  - Every pose the library takes or returns is in WPILib's blue alliance origin, as with `2025.0`
+    files. The new editor saves poses from the center of the field, and the library converts them
+    when a file is loaded, using `FlippingUtil.fieldSizeX`/`fieldSizeY`. Loading fails if those
+    disagree with the field size in `navgrid.json`.
   - Condition branches read `NamedConditions.registerCondition(name, condition)`. External command
     steps read `NamedCommands`.
   - Commands v3 only. Commands v2 still runs `2025.0` files only.
@@ -40,5 +42,5 @@ It uses the same UUID as the official PathplannerLib vendordep, so it replaces i
 
 | Version | Built from |
 | --- | --- |
-| `2027.0.0-alpha-7-commandsv3-2` | `path2-2027-1` @ `eb7989ec` |
+| `2027.0.0-alpha-7-commandsv3-2` | `path2-2027-1` @ `7c125f72` |
 | `2027.0.0-alpha-7-commandsv3-1` | `new-path-2027-commands-v3` @ `8f7af5fb` |
